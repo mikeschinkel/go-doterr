@@ -10,7 +10,7 @@ Three (3) usage patterns:
 
 ## Status
 
-This is **pre-alpha** and in development thus **subject to change**, although I am trying to bring to v1.0 as soon as I feel confident its architecture will not need to change. As of Novemeber 2025 I am actively working on it and using it in current projects.
+This is in **beta** in active use during development of a large Go project and feels stable and close to v1.0. As of Novemeber 2025 I am actively working on it and using it in current projects.
 
 If you find value in this project and want to use it, please start a discuss to let me know. If you discuver any issues with it, please open an issue or submit a pull request.
 
