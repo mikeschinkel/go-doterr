@@ -113,8 +113,9 @@ jobs:
           REPO_NAME="${{ github.event.repository.name }}"
           REPO_URL="https://github.com/${{ github.repository }}"
 
-          # Get the previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          # Get the previous tag (most recent tag that already exists)
+          # Use --tags to include all tags, not just annotated ones
+          PREV_TAG=$(git tag -l --sort=-v:refname | head -n 1)
 
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           echo "## ${REPO_NAME} ${{ inputs.version }}" >> $GITHUB_OUTPUT
@@ -136,7 +137,7 @@ jobs:
             echo "See [README.md](README.md) for documentation and usage." >> $GITHUB_OUTPUT
           else
             # Subsequent releases - show commits since last tag
-            echo "### Changes since $PREV_TAG" >> $GITHUB_OUTPUT
+            echo "### Commits" >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
             git log ${PREV_TAG}..HEAD --pretty=format:"- [**%h**](${REPO_URL}/commit/%H) - %s (%an, %ar)" >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
