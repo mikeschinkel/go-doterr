@@ -56,9 +56,28 @@ while IFS= read -r -d '' target; do
     continue
   fi
 
-  # Determine the new package name: basename of the directory containing the target file.
+  # Determine the new package name from an existing .go file in the target directory.
   dirpath="$(dirname "$target")"
-  pkgname="$(basename "$dirpath")"
+
+  # Try to extract the actual package name from any .go file in the directory
+  # Skip _test packages to get the real package name
+  pkgname=""
+  for gofile in "$dirpath"/*.go; do
+    if [[ -f "$gofile" && "$gofile" != "$target" ]]; then
+      # Extract package name, but skip if it ends with _test
+      candidate=$(awk '/^package [a-zA-Z_][a-zA-Z0-9_]*$/ {print $2; exit}' "$gofile")
+      if [[ -n "$candidate" && "$candidate" != *_test ]]; then
+        pkgname="$candidate"
+        break
+      fi
+    fi
+  done
+
+  # Fallback to directory basename if no package found (shouldn't happen)
+  if [[ -z "$pkgname" ]]; then
+    pkgname="$(basename "$dirpath")"
+    echo "WARNING: Could not detect package name from .go files in $dirpath, using directory name: $pkgname" >&2
+  fi
 
   # Build the transformed content in a temp file.
   tmp="$(mktemp)"

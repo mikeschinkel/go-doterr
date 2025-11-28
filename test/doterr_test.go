@@ -1,4 +1,4 @@
-package doterr_test
+package test
 
 import (
 	"errors"
@@ -398,5 +398,40 @@ func TestWithErr_DetectsCrossPackageErrors_CauseError(t *testing.T) {
 	enriched := WithErr("extra", "metadata", localErr)
 	if errors.Is(enriched, ErrCrossPackageError) {
 		t.Error("local error should not trigger cross-package detection")
+	}
+}
+
+// TestNewErr_PreservesSentinelForErrorsIs verifies that error sentinels
+// are preserved through NewErr/WithErr wrapping for use with errors.Is().
+// This is critical for proper error handling when errors are wrapped by
+// libraries like jsonv2.Unmarshal().
+func TestNewErr_PreservesSentinelForErrorsIs(t *testing.T) {
+	sentinel := errors.New("test sentinel")
+
+	// Test 1: NewErr preserves sentinel
+	err := NewErr(sentinel, "key", "value")
+	if !errors.Is(err, sentinel) {
+		t.Fatal("NewErr should preserve sentinel for errors.Is()")
+	}
+
+	// Test 2: WithErr preserves sentinel through enrichment
+	wrapped := WithErr(err, "more", "data")
+	if !errors.Is(wrapped, sentinel) {
+		t.Fatal("WithErr should preserve sentinel for errors.Is()")
+	}
+
+	// Test 3: errors.Join preserves sentinel (simulates jsonv2.Unmarshal wrapping)
+	cause := NewErr(sentinel, "nested", "error")
+	joined := errors.Join(errors.New("wrapper: outer error"), cause)
+	if !errors.Is(joined, sentinel) {
+		t.Fatal("errors.Join should preserve sentinel for errors.Is()")
+	}
+
+	// Test 4: Multiple layers of wrapping
+	deep := WithErr(joined, "layer1", "value1")
+	deep = WithErr(deep, "layer2", "value2")
+	deep = errors.Join(errors.New("another wrapper"), deep)
+	if !errors.Is(deep, sentinel) {
+		t.Fatal("Multiple layers of wrapping should preserve sentinel for errors.Is()")
 	}
 }
