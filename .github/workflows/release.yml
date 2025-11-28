@@ -90,6 +90,14 @@ jobs:
             exit 1
           fi
 
+      - name: Get previous tag for release notes
+        id: prev_tag
+        run: |
+          # Get the most recent tag before we create the new one
+          PREV_TAG=$(git tag -l --sort=-v:refname | head -n 1)
+          echo "prev_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+          echo "Previous tag: ${PREV_TAG:-none (first release)}"
+
       - name: Create Git tag
         run: |
           # Get the actual user email from GitHub API
@@ -113,9 +121,8 @@ jobs:
           REPO_NAME="${{ github.event.repository.name }}"
           REPO_URL="https://github.com/${{ github.repository }}"
 
-          # Get the previous tag (most recent tag that already exists)
-          # Use --tags to include all tags, not just annotated ones
-          PREV_TAG=$(git tag -l --sort=-v:refname | head -n 1)
+          # Use the previous tag we captured before creating the new tag
+          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
 
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           echo "## ${REPO_NAME} ${{ inputs.version }}" >> $GITHUB_OUTPUT
