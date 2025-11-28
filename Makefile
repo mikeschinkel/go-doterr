@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-corpus test-all lint build clean fmt vet tidy sync
+.PHONY: help test test-unit test-corpus test-all lint build clean fmt vet tidy sync examples
 
 LINTER = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2"
 
@@ -19,6 +19,7 @@ help:
 	@echo "  make vet          - Run go vet"
 	@echo "  make tidy         - Run go mod tidy"
 	@echo "  make build        - Build the package"
+	@echo "  make examples     - Build all examples to ./bin/"
 	@echo "  make clean        - Clean build artifacts"
 	@echo "  make ci           - Run all CI checks (fmt, vet, lint, test-all)"
 	@echo "  make sync DIR=<path> [DRY_RUN=1] - Sync doterr.go to all subdirectories"
@@ -60,10 +61,26 @@ tidy:
 build:
 	$(GO) build ./...
 
+# Build all examples to ./bin/
+examples:
+	@mkdir -p bin
+	@for example in examples/*/; do \
+		name=$$(basename $$example); \
+		echo "Building $$name..."; \
+		cd $$example && \
+		go mod init example 2>/dev/null || true && \
+		go mod edit -replace github.com/mikeschinkel/go-doterr=../.. && \
+		go mod tidy && \
+		go build -o ../../bin/$$name . && \
+		cd ../..; \
+	done
+	@echo "Examples built to ./bin/"
+
 # Clean build artifacts
 clean:
 	$(GO) clean
 	rm -f coverage.txt
+	rm -rf bin
 	cd test && $(GO) clean
 
 # Run all CI checks locally

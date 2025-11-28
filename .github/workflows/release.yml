@@ -1,0 +1,158 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.1.1)'
+        required: true
+        type: string
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  # Re-run all tests to ensure current commit is good
+  test:
+    name: Test Before Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: go test -v -race ./...
+
+      - name: Run fuzz corpus regression tests
+        working-directory: test
+        run: go test -v -run=TestFuzzCorpus
+
+      - name: Build examples
+        run: |
+          for example in basic_usage layered_errors combined_errors; do
+            cd examples/$example
+            go mod init example || true
+            go mod edit -replace github.com/mikeschinkel/go-doterr=../..
+            go mod tidy
+            go build -v .
+            cd ../..
+          done
+
+  # Only runs if tests pass
+  release:
+    name: Create Release
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Version must match format v0.0.0 or v0.0.0-suffix"
+            echo "Got: $VERSION"
+            exit 1
+          fi
+
+      - name: Check if tag already exists
+        run: |
+          if git rev-parse "${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "Error: Tag ${{ inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Create Git tag
+        run: |
+          # Get the actual user email from GitHub API
+          USER_EMAIL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/users/${{ github.actor }} | jq -r '.email // empty')
+
+          # Fall back to noreply email if user hasn't made their email public
+          if [ -z "$USER_EMAIL" ] || [ "$USER_EMAIL" = "null" ]; then
+            USER_EMAIL="${{ github.actor }}@users.noreply.github.com"
+          fi
+
+          git config user.name "${{ github.actor }}"
+          git config user.email "$USER_EMAIL"
+          git tag -a "${{ inputs.version }}" -m "Release ${{ inputs.version }}"
+          git push origin "${{ inputs.version }}"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            # First release
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            echo "## DotErr ${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "Initial release of go-doterr - embeddable, zero-dependency error composition for Go." >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "### Features" >> $GITHUB_OUTPUT
+            echo "- Structured error metadata with key-value pairs" >> $GITHUB_OUTPUT
+            echo "- Sentinel error support for type-safe error identification" >> $GITHUB_OUTPUT
+            echo "- Layered error composition with cause chains" >> $GITHUB_OUTPUT
+            echo "- Error enrichment with \`WithErr()\` for same-function metadata" >> $GITHUB_OUTPUT
+            echo "- Multi-error bundling with \`CombineErrs()\`" >> $GITHUB_OUTPUT
+            echo "- Zero external dependencies - pure Go stdlib" >> $GITHUB_OUTPUT
+            echo "- Three usage patterns: embed source file, dot-import, or normal import" >> $GITHUB_OUTPUT
+            echo "- Cross-package error detection for embedded instances" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "### Usage Patterns" >> $GITHUB_OUTPUT
+            echo "1. **Embed the source file** (recommended) - copy \`doterr.go\` directly into your package" >> $GITHUB_OUTPUT
+            echo "2. **Dot-import** - \`import . \"github.com/mikeschinkel/go-doterr\"\`" >> $GITHUB_OUTPUT
+            echo "3. **Normal import** - \`import \"github.com/mikeschinkel/go-doterr\"\`" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "See [README.md](README.md) for full documentation and examples." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            # Subsequent releases - generate from commits
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            echo "## DotErr ${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "### Changes since $PREV_TAG" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            git log ${PREV_TAG}..HEAD --pretty=format:"- %s" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "**Full Changelog**: https://github.com/mikeschinkel/go-doterr/compare/${PREV_TAG}...${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
