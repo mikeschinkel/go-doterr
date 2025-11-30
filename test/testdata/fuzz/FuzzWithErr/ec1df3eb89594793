@@ -1,0 +1,6 @@
+go test fuzz v1
+string("key")
+string("value")
+bool(false)
+bool(false)
+bool(false)

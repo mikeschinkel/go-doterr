@@ -24,25 +24,29 @@ help:
 	@echo "  make ci           - Run all CI checks (fmt, vet, lint, test-all)"
 	@echo "  make sync DIR=<path> [DRY_RUN=1] - Sync doterr.go to all subdirectories"
 
-# Go environment
-GO := go
+# Go environment (requires jsonv2 experiment)
+GOEXPERIMENT ?= jsonv2
+GO := GOEXPERIMENT=$(GOEXPERIMENT) go
+
+ensure-valid: tidy test lint vet examples
 
 # Run unit tests
 test: test-unit
 
 test-unit:
-	cd test && $(GO) test -v -race -coverprofile=./coverage.txt -covermode=atomic ./...
+	@$(GO) test -v -race -coverprofile=test/coverage.txt -covermode=atomic ./... || exit 1
+	@cd test && $(GO) test -v -race ./... || exit 1
 
 # Run fuzz corpus regression tests
 test-corpus:
-	cd test && $(GO) test -v -run=TestFuzzCorpus
+	@cd test && $(GO) test -v -run=TestFuzzCorpus || exit 1
 
 # Run all tests
 test-all: test-unit test-corpus
 
 # Run linter
 lint:
-	go run $(LINTER) run ./... --timeout=5m
+	$(GO) run $(LINTER) run ./... --timeout=5m
 
 # Format code
 fmt:
@@ -54,8 +58,10 @@ vet:
 
 # Run go mod tidy
 tidy:
-	$(GO) mod tidy
-	cd test && $(GO) mod tidy
+	@echo "Running go mod tidy for main package..."
+	@$(GO) mod tidy || exit 1
+	@echo "Running go mod tidy for test..."
+	@cd test && $(GO) mod tidy || exit 1
 
 # Build the package
 build:
@@ -64,14 +70,14 @@ build:
 # Build all examples to ./bin/
 examples:
 	@mkdir -p bin
-	@for example in examples/*/; do \
+	@set -e; for example in examples/*/; do \
 		name=$$(basename $$example); \
 		echo "Building $$name..."; \
 		cd $$example && \
 		go mod init example 2>/dev/null || true && \
 		go mod edit -replace github.com/mikeschinkel/go-doterr=../.. && \
-		go mod tidy && \
-		go build -o ../../bin/$$name . && \
+		go mod tidy || exit 1; \
+		$(GO) build -o ../../bin/$$name . || exit 1; \
 		cd ../..; \
 	done
 	@echo "Examples built to ./bin/"

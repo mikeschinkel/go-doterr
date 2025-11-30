@@ -142,23 +142,13 @@ jobs:
             echo "" >> $GITHUB_OUTPUT
           fi
 
-          if [ -z "$PREV_TAG" ]; then
-            # First release - show all commits from beginning
-            echo "### Commits" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            git log --pretty=format:"- [**%h**](${REPO_URL}/commit/%H) - %s (%an, %ar)" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "See [README.md](README.md) for documentation and usage." >> $GITHUB_OUTPUT
-          else
-            # Subsequent releases - show commits since last tag
-            echo "### Commits" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            git log ${PREV_TAG}..HEAD --pretty=format:"- [**%h**](${REPO_URL}/commit/%H) - %s (%an, %ar)" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "**Full Changelog**: ${REPO_URL}/compare/${PREV_TAG}...${{ inputs.version }}" >> $GITHUB_OUTPUT
-          fi
+          # Subsequent releases - show commits since last tag
+          echo "### Commits" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          git log ${PREV_TAG}..HEAD --pretty=format:"- [**%h**](${REPO_URL}/commit/%H) - %s (%an, %ar)" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "**Full Changelog**: ${REPO_URL}/compare/${PREV_TAG}...${{ inputs.version }}" >> $GITHUB_OUTPUT
 
           echo "EOF" >> $GITHUB_OUTPUT
 
