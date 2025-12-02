@@ -61,7 +61,6 @@ var (
 	ErrInvalidArgumentType = errors.New("invalid argument type")
 	ErrOddKeyValueCount    = errors.New("odd number of key-value arguments")
 	ErrCrossPackageError   = errors.New("error from different doterr package")
-	ErrFailedTypeAssertion = errors.New("failed type assertion")
 )
 
 // NewErr builds a standalone structured entry (no primary cause inside).
@@ -76,8 +75,11 @@ var (
 // remaining args must form valid pairs, except for an optional final error.
 // Returns nil if no meaningful parts are provided after validation.
 // Returns a validation error joined with the partial entry if validation fails.
+//
+//goland:noinspection DuplicatedCode
 func NewErr(parts ...any) error {
 	// Separate optional trailing cause from the parts
+	//goland:noinspection DuplicatedCode
 	coreParts, cause := extractTrailingCause(parts)
 
 	if validationErr := validateNewParts(coreParts); validationErr != nil {
@@ -132,6 +134,8 @@ func NewErr(parts ...any) error {
 // Note: For inter-function composition, prefer New() with trailing cause:
 //
 //	return doterr.New(ErrRepo, "key", val, cause) // cause last
+//
+//goland:noinspection DuplicatedCode
 func WithErr(parts ...any) error {
 	if len(parts) == 0 {
 		return nil
@@ -199,6 +203,8 @@ func CombineErrs(errs []error) error {
 // left-to-right and returns metadata from the first doterr entry found.
 // Otherwise returns nil.
 // The returned slice preserves insertion order and is a copy.
+//
+//goland:noinspection DuplicatedCode
 func ErrMeta(err error) []KV {
 	var ok bool
 	var e, ce entry
@@ -283,6 +289,8 @@ func ErrValue[T any](err error, key string) (T, bool) {
 //
 // Note: These errors may be sentinel errors (e.g., ErrRepo), custom error types
 // (e.g., *rfc9457.Error), or any other error type stored in the entry.
+//
+//goland:noinspection DuplicatedCode
 func Errors(err error) []error {
 	// Case (a): err is an entry → return its errors
 	//goland:noinspection GoTypeAssertionOnErrors
@@ -361,6 +369,9 @@ func newEntry(errors []error, kvs []kv) *entry {
 	}
 }
 
+// Error implements the std lib error interface and returns the strings value
+//
+//goland:noinspection DuplicatedCode
 func (e entry) Error() string {
 	if len(e.errors) == 0 && len(e.kvs) == 0 {
 		return "doterr{}"
@@ -396,6 +407,7 @@ func (e entry) Unwrap() []error {
 
 func (e entry) empty() bool { return len(e.errors) == 0 && len(e.kvs) == 0 }
 
+//goland:noinspection DuplicatedCode
 func appendEntry(e *entry, parts ...any) {
 	for i := 0; i < len(parts); {
 		switch v := parts[i].(type) {
@@ -452,6 +464,8 @@ func (c combined) Unwrap() []error {
 //   - It's the last element, AND
 //   - It comes after at least one sentinel, AND
 //   - It's not part of an incomplete key-value pair (would leave odd count)
+//
+//goland:noinspection DuplicatedCode
 func extractTrailingCause(parts []any) (_ []any, err error) {
 	var lastIdx, sentinelCount, nonSentinelCount int
 	var ok bool
@@ -506,6 +520,8 @@ end:
 //   - Then zero or more KV or string key-value pairs
 //   - After the first string key, remaining args must form valid pairs (even count)
 //   - No non-string/non-error/non-KV values allowed
+//
+//goland:noinspection DuplicatedCode
 func validateNewParts(parts []any) error {
 	if len(parts) == 0 {
 		// Build entry manually to avoid recursion
@@ -660,6 +676,8 @@ func buildErr(baseErr error, middle []any) error {
 //	(b) one of the immediate children of a multi-unwrap (errors.Join) tree.
 //
 // It does NOT recurse deeper than one join level.
+//
+//goland:noinspection DuplicatedCode
 func enrichRightmost(err error, parts ...any) (error, bool) {
 	// Case (a): err is an entry → merge directly.
 	//goland:noinspection GoTypeAssertionOnErrors
