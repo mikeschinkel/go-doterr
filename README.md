@@ -302,6 +302,90 @@ err = WithErr(err, "attempt", retryCount)
 If the rightmost entry is already a `doterr` entry, it merges into it.
 If not, it creates a new one and joins it automatically. `WithErr()` never accepts a cause — it's for enrichment only.
 
+### Adding function-level context at the end label
+
+When using the Clear Path style with `goto end`, add function-level context once at the `end:` label instead of repeating it at every error creation point:
+
+**Preferred pattern:**
+```go
+func (c *Cmd) processFile() (err error) {
+    var filepath dt.Filepath
+    var data []byte
+
+    filepath = dt.FilepathJoin(c.Dir, "config.json")
+    data, err = filepath.ReadFile()
+    if err != nil {
+        err = NewErr(ErrFileRead, err)
+        goto end
+    }
+
+    err = c.parseData(data)
+    if err != nil {
+        err = NewErr(ErrParsing, err)
+        goto end
+    }
+
+end:
+    if err != nil {
+        err = WithErr(err, "filepath", filepath)
+    }
+    return err
+}
+```
+
+**Avoid repeating context:**
+```go
+func (c *Cmd) processFile() (err error) {
+    var filepath dt.Filepath
+
+    filepath = dt.FilepathJoin(c.Dir, "config.json")
+    data, err := filepath.ReadFile()
+    if err != nil {
+        // Repetitive - filepath added here
+        err = NewErr(ErrFileRead, "filepath", filepath, err)
+        goto end
+    }
+
+    err = c.parseData(data)
+    if err != nil {
+        // And again here
+        err = NewErr(ErrParsing, "filepath", filepath, err)
+        goto end
+    }
+
+end:
+    return err
+}
+```
+
+This keeps error creation clean (just sentinels + cause) and adds shared function-level context in one place.
+
+### Accumulating errors with AppendErr
+
+`AppendErr` is a convenience function for accumulating errors in a slice, skipping nil errors automatically:
+
+```go
+var errs []error
+err := doSomething()
+errs = AppendErr(errs, err)  // Only appends if err != nil
+```
+
+This is equivalent to but more concise than:
+
+```go
+var errs []error
+err := doSomething()
+if err != nil {
+    errs = append(errs, err)
+}
+```
+
+**Note:** If you're adding context to an error with `NewErr()`, use regular `append()` since you know the error is non-nil:
+
+```go
+errs = append(errs, NewErr(ErrSomethingFailed, err))
+```
+
 ## API summary
 
 | Function                                                                                                                  | Purpose                                                                      |
@@ -309,6 +393,7 @@ If not, it creates a new one and joins it automatically. `WithErr()` never accep
 | `NewErr(parts ...any)`                                                                                                    | Create a new entry with sentinels first, metadata, and optional trailing cause. |
 | `WithErr(err error, parts ...any)`                                                                                        | Enrich existing error by merging into rightmost entry (enrichment only).    |
 | `CombineErrs(errs []error)`                                                                                               | Join multiple independent errors (skips `nil`s, preserves order).           |
+| `AppendErr(errs []error, err error) []error`                                                                              | Append error to slice only if non-nil (convenience to avoid if checks).     |
 | `ErrMeta(err error) []KV`                                                                                                 | Return metadata key/value pairs from first entry (unwraps one level).       |
 | `Errors(err error) []error`                                                                                               | Return sentinel/typed errors from first entry (unwraps one level).          |
 | `FindErr[T](err error) (T, bool)`                                                                                         | Extract first typed error of type T using `errors.As`.                      |
