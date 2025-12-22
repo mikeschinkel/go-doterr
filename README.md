@@ -1,28 +1,30 @@
 # doterr
-## Embeddable, zero-dependency error composition for Go
+## An Embeddable "Drop-In" Error Package for Go
 
-Three (3) usage patterns: 
+**`doterr`** is a single-file error handling package designed to be **embedded directly into your Go packages** as a _**"drop-in"**_ source file. Unlike traditional dependencies,  you copy `doterr.go` into your package—no external dependencies, no version conflicts, just a single file that becomes part of your package namespace.
 
-1. **Embed** the source file _(recommended)_, 
-2. **Dot-import** from `go get` _(alternative),_ or 
-3. Normal import _(if you must)_.
-
+This approach is inspired by [ShadCN](https://ui.shadcn.com/docs) for React components: just like you might copy a utility function into your codebase, `doterr.go` becomes part of your package.
 
 ## Status
 
-This is in **beta** in active use during development of a large Go project and feels stable and close to v1.0. As of Novemeber 2025 I am actively working on it and using it in current projects.
+This is **beta** _(aka experimental)_: in active use during development of a large Go project and feels stable and close to v1.0. As of December 2025 I am actively working on it and using it in current projects.
 
-If you find value in this project and want to use it, please start a discuss to let me know. If you discuver any issues with it, please open an issue or submit a pull request.
-
+If you find value in this project and want to use it, please start a discussion to let me know. If you discover any issues with it, please open an issue or submit a pull request.
 
 ## What it is
 
-`doterr` is an **embeddable source file for building rich, composable errors in Go**. Unlike traditional packages, you embed `doterr.go` directly into your code—no external dependencies, no version conflicts, just a single file that becomes part of your package.
+`doterr` introduces **two small structural concepts** built on top of Go's `errors.Join`, plus **convenience helpers** for common patterns:
 
-It introduces two small concepts built on top of Go's `errors.Join`:
+### Core Concepts
 
 1. **Entries** — lightweight layers that attach sentinel errors and key/value metadata for a single call frame.
 2. **Combined errors** — minimal composite wrappers for bundling *independent* failures _(like other multi-error packages)._
+
+### Convenience Helpers
+
+- **MsgErr()** — Create ad-hoc error messages during rapid development
+- **Typed KV functions** — Type-safe metadata (StringKV, IntKV, BoolKV, etc.)
+- **AppendKV()** — Accumulate metadata with lazy evaluation
 
 Every error value returned by any function of `doterr` returns a Go standard library `error`. The only exported type besides `error` is the `KV` interface for metadata key/value pairs. There are no exported concrete types, no reflection, and no dependency lock-in. You can use `doterr` with any Go app that uses standard Go error handling, and you can adopt it incrementally over time.
 
@@ -36,13 +38,11 @@ Use `doterr` to:
   such as, for example, an RFC 9457 error, or a domain-specific type.
 * Optionally **extract** custom errors with `FindErr[T](err)` when needed.
 
-`doterr` does not try to replace Go’s error handling. `doterr` makes error handling in Go  **layered, inspectable, and ergonomic**, without ever leaving `error` and `errors.Join`.
+`doterr` does not try to replace Go's error handling. `doterr` makes error handling in Go  **layered, inspectable, and ergonomic**, without ever leaving `error` and `errors.Join`.
 
-## Design intent
+## How to Use doterr
 
-Go developers already understand embedding from `//go:embed` directives and struct embedding—`doterr` extends this concept to **source file embedding**. There are three mutually exclusive ways to use `doterr` in each package:
-
-### Option 1: Embed the source file (STRONGLY RECOMMENDED)
+### Embed the Source File
 
 Copy `doterr.go` directly into your package. The functions become part of your package namespace—no import statement needed.
 
@@ -57,99 +57,56 @@ func processUser(id int) error {
     return NewErr(
       ErrNotFound,
       "user_id", id,
-      err,  // trailing cause
+      err,  // err is the trailing cause
     )
   }
   return nil
 }
 ```
 
-**Why this is recommended:**
+**Why this is the intended use case:**
 - No external dependencies or version conflicts
 - Functions like `NewErr()` and `WithErr()` appear consistently across all packages
 - Enables seamless cross-package error composition
 - Each package owns its copy—modify if needed
 
-This is the intended use case, inspired by [ShadCN's approach](https://www.shadcn.io/ui/installation-guide#what-makes-shadcnui-different) for React.
+### Synchronizing Multiple Copies
 
-### Option 2: go get + dot-import (alternative to avoid duplication)
+When using doterr in multiple packages, use `make sync` to keep all embedded copies synchronized:
 
-If you want to avoid file duplication, use `go get` with dot-import:
-
-```go
-package myapp
-
-import . "github.com/mikeschinkel/go-doterr"
-
-func processUser(id int) error {
-  err := doSomething()
-  if err != nil {
-    return NewErr(
-      ErrNotFound,
-      "user_id", id,
-      err,  // trailing cause
-    )
-  }
-  return nil
-}
+```bash
+cd /path/to/go-doterr
+make sync DIR=~/Projects
 ```
 
-**Benefits:**
-- Same unqualified function names as embedding (`NewErr()`, `WithErr()`)
-- Maintains cross-package compatibility
-- Single dependency source instead of multiple copies
+This tool:
+- Finds all `doterr.go` files under the specified directory
+- Updates each with the correct package name
+- Ensures bug fixes and updates propagate to all copies
+- Prompts for confirmation before making changes
 
-**Trade-offs:**
-- Traditional dependency (version management required)
-- Cannot customize the implementation per-package
-
-### Option 3: go get + normal import (if you must)
-
-If dot-imports are forbidden in your project:
-
-```go
-package myapp
-
-import "github.com/mikeschinkel/go-doterr"
-
-func processUser(id int) error {
-  err := doSomething()
-  if err != nil {
-    return doterr.NewErr(
-      ErrNotFound,
-      "user_id", id,
-      err,  // trailing cause
-    )
-  }
-  return nil
-}
+**Example:**
+```bash
+cd /Users/you/Projects/go-pkgs/go-doterr
+make sync DIR=~/Projects
 ```
 
-**Note:** This works but loses the primary benefit. When different packages use different qualifiers (`doterr.NewErr()` vs `pkgname.NewErr()`), cross-package error composition becomes inconsistent. Use this only if organizational constraints require it.
+See [cmd/sync-doterr/README.md](cmd/sync-doterr/README.md) for full documentation.
 
-### Why function names matter
-
-With Option 1 or 2, every package uses `NewErr()` and `WithErr()`—creating predictable, interoperable error handling across your entire codebase. With Option 3, each package might use different qualifiers, breaking that consistency.
-
-### Linters & imports
-
-If your linter or style guide restricts dot-imports:
-1. **Best:** Use Option 1 (embedding)—no import means no linter issue
-2. **Alternative:** Configure linter to allow dot-import for `go-doterr`
-3. **Last resort:** Use Option 3, understanding the compatibility trade-offs
+> **Note:** This is a temporary solution while waiting for generalized drop-in management in [Squire](https://github.com/mikeschinkel/squire). Future tooling will support managing any embeddable source files, not just doterr.go.
 
 ## Core principles
 
 | Principle                                                                                                                                                                                         | Description                                                                                                                                                                    |
 |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Pure standard Go library**                                                                                                                                                                      | Only depends on Go's built-in `errors` package.                                                                                                                                |
-| **Embeddable by design**                                                                                                                                                                          | Three usage patterns: embed the source file (recommended), dot-import via `go get` (alternative), or normal import (if you must).                                             |
-| **Fully composable**                                                                                                                                                                              | Always returns the native `error` type.                                                                                                                                        |
+| **Embeddable by design**                                                                                                                                                                          | Copy doterr.go into your package—it becomes part of your package namespace.                                              |
+| **Fully composable**                                                                                                                                                                              | Always returns the native `error` type. No runtime type assertions required. No need to learn multiple custom error type APIs. Natural composition without type compatibility issues.                                                                                                                        |
 | **Explicit layering**                                                                                                                                                                             | By convention, each `func` builds one entry and passes its cause as the trailing argument.                                                                                     |
-| **Sentinel-driven**                                                                                                                                                                               | By convention, every layer identifies itself using sentinel errors.                                                                                                            |
+| **Sentinel-driven**                                                                                                                                                                               | By convention, every layer identifies itself using sentinel errors.                                                                                            |
 | **Structured metadata**                                                                                                                                                                           | Provide key/value pairs (`"key", value`) alongside sentinels at each level.                                                                                                    |
 | **One way, not many**| `doterr` exposes a single canonical `func` for each behavior. No alternative function names or multiple ways to do the same thing. |
-| **Consistent naming**                 | Embedding or dot-import ensures `NewErr()` and `WithErr()` appear consistently across all packages for seamless interoperability.                                             |
+| **Consistent naming**                 | Embedding ensures `NewErr()` and `WithErr()` appear consistently across all packages for seamless interoperability.                                             |
 
 > **Note:** `NewErr()` accepts an optional trailing cause parameter for wrapping errors. `WithErr()` enriches an existing error (which may itself contain causes) by adding metadata, but does not accept a trailing cause parameter—it only adds to what already exists.
 
@@ -160,14 +117,13 @@ At first blush that seems harmless, until developers try to use it with existing
 
 Here is what happens:
 
-1. **Developers must type-assert errors** — To access their custom properties and methods, or to pass to a `func` or assign to a `var` or method properties typed for the custom error, developers are forced to type assert, and _then_ write _more_ error handling code to deal with errors that don't type assert as expected. If you always uses errors of type `error`, this problem effectively disappears.  
+1. **Developers must type-assert errors** — To access their custom properties and methods, or to pass to a `func` or assign to a `var` or method properties typed for the custom error, developers are forced to type assert, and _then_ write _more_ error handling code to deal with errors that don't type assert as expected. If you always uses errors of type `error`, this problem effectively disappears.
 
 2. **Developers cannot mix types cleanly** — If multiple packages define their own custom error types you end up in situations were you can use one or the other, _but not both_. If you always use `error` instead, you can always unify errors with one mechanism: `errors.Join()`.
 
 3. **Custom errors are often not composable** — Standard helpers (`errors.Is`, `errors.As`, `errors.Join`) only work if you expose or wrap correctly. Many libraries forget to implement `Unwrap()` or do not do it properly — causing lost context.
 
-
-Go’s own `os.PathError` is a classic example. It wraps valuable info (`Op`, `Path`, `Err`)
+Go's own `os.PathError` is a classic example. It wraps valuable info (`Op`, `Path`, `Err`)
 but forces you to `errors.As(err, &os.PathError{})` instead of using consistent metadata patterns.
 
 By contrast, `doterr` keeps **every layer** a plain `error` — enriched with sentinel and key-value metadata:
@@ -185,10 +141,10 @@ They make your error tree 1.) **type-safe**, 2.) **searchable**, and 3.) **idiom
 
 ```go
 var (
-  ErrDriver   = errors.New("driver")   // lowest level
-  ErrRepo     = errors.New("repo")     // middle layer
-  ErrService  = errors.New("service")  // top layer
-  ErrTemplate = errors.New("template") // domain-specific category
+  ErrDriver   = errors.New("driver error")      // lowest level
+  ErrRepo     = errors.New("repository error")  // middle layer
+  ErrService  = errors.New("service error")     // top layer
+  ErrTemplate = errors.New("template error")    // domain-specific category
 )
 ```
 
@@ -207,16 +163,16 @@ var (
 )
 ```
 
-The first five are used for `NewErr()` argument validation. `ErrCrossPackageError` is automatically added when `WithErr()` detects you're mixing errors from different `doterr` copies (see [Cross-package error detection](#-cross-package-error-detection) below).
+The first five are used for `NewErr()` argument validation. `ErrCrossPackageError` is automatically added when `WithErr()` detects you're mixing errors from different `doterr` copies (see [Cross-package error detection](#cross-package-error-detection) below).
 
 Include one or two sentinels when constructing an entry — **always first:**
 
 ```go
-cause := someOperation()
+err := someOperation()
 return NewErr(ErrDriver,
   "sql", query,
   "param", id,
-  cause,  // trailing cause
+  err,  // err is the trailing cause
 )
 ```
 
@@ -228,7 +184,93 @@ if errors.Is(err, ErrDriver) {
 }
 ```
 
-Why provide **two (2)** sentinels? It can often be useful to provide both a general purpose error — e.g. `ErrNotFound` — and a more-specific error — e.g. `ErrNoWidgetMatchedSearchTerm` — when characterizing errors.
+Why provide **two (2)** sentinels? It can often be useful to provide both a general purpose error — e.g. `ErrNotFound` — and a more-specific error — e.g. `ErrWidgetNotFound` — when characterizing errors.
+
+See [adrs/adr-2025-12-20-error-sentinel-strategy.md](adrs/adr-2025-12-20-error-sentinel-strategy.md) for sentinel naming conventions and guidance.
+
+## MsgErr() for Rapid Development
+
+`MsgErr()` creates ad-hoc error messages without requiring a sentinel error. This is a convenience for rapid development—use sentinels for production code when patterns stabilize.
+
+**Two forms:**
+
+```go
+// Create error with message
+err := MsgErr("config validation failed")
+
+// Wrap existing error (preserves error chain for errors.Is)
+err := MsgErr(existingErr)
+```
+
+**Usage with doterr functions:**
+
+```go
+// In NewErr() as a sentinel replacement
+err := NewErr(MsgErr("file not found"), "path", configPath)
+
+// With metadata
+err := MsgErr("config invalid")
+err = WithErr(err, "path", "/etc/app.conf")
+
+// As trailing cause
+err := NewErr(ErrProcessing, "step", "validate", MsgErr("format error"))
+```
+
+**Migration path:**
+
+1. **Rapid development** — Use MsgErr during active coding
+2. **Observation** — Let error patterns emerge
+3. **Analysis** — Use tooling to find common MsgErr messages
+4. **Promotion** — Convert frequent patterns to sentinels
+5. **Stabilization** — Mark sentinels as stable after validation
+
+Future tooling can detect MsgErr usage and suggest/generate appropriate sentinel errors.
+
+**Mixing MsgErr and sentinels:**
+
+```go
+// Use sentinel for category, MsgErr for specifics
+err := NewErr(
+    ErrInvalid,
+    MsgErr("email format is incorrect"),
+    "email", userEmail,
+)
+
+// Consumer can check category
+if errors.Is(err, ErrInvalid) {
+    // Handle validation error
+}
+```
+
+## Parameter types for NewErr()
+
+`NewErr(parts ...any)` accepts a variadic parameter, but **not all types are valid**:
+
+| Valid | Type | Position | Example |
+|-------|------|----------|---------|
+| ✅ | Sentinel error | First positions | `ErrRepo`, `ErrNotFound` |
+| ✅ | Metadata key (string) | Followed by value | `"table"` |
+| ✅ | Metadata value (any) | After key | `"users"`, `42`, `obj` |
+| ✅ | Cause error | Last position only | `err` |
+| ❌ | Descriptive string | Any | `"failed to connect"` |
+| ❌ | fmt.Sprintf result | Any | `fmt.Sprintf("error: %s", msg)` |
+
+**Anti-pattern to avoid:**
+
+```go
+// ❌ WRONG - descriptive strings are not sentinels
+return NewErr(ErrCmd, "failed to resolve config directory", err)
+return NewErr(ErrCmd, fmt.Sprintf("no branch found (tried: %s)", list))
+
+// ✅ CORRECT - use sentinels + metadata
+return NewErr(ErrCmd, ErrResolvingConfigDir, err)
+return NewErr(ErrCmd, ErrNoBranchFound, "tried", list)
+
+// ✅ ALTERNATIVE - use MsgErr during development
+return NewErr(ErrCmd, MsgErr("failed to resolve config directory"), err)
+```
+
+Descriptive strings bypass `errors.Is()` and cannot be matched programmatically. If you need to describe a failure condition, create a sentinel error for it or use MsgErr() during development.
 
 ## Layered composition example
 
@@ -246,7 +288,7 @@ func readDriver() (Result, error) {
     return nil, NewErr(ErrDriver,
       "sql", query,
       "param", id,
-      err,  // trailing cause
+      err,  // err is the trailing cause (original database error)
     )
   }
   return result, nil
@@ -258,7 +300,7 @@ func readRepo() error {
   if err != nil {
     return NewErr(ErrRepo,
       "table", "users",
-      err,  // trailing cause
+      err,  // err is the trailing cause (from driver layer)
     )
   }
   return nil
@@ -270,7 +312,7 @@ func readService() error {
   if err != nil {
     return NewErr(ErrService,
       "op", "GetUser",
-      err,  // trailing cause
+      err,  // err is the trailing cause (from repository layer)
     )
   }
   return nil
@@ -306,6 +348,31 @@ If not, it creates a new one and joins it automatically. `WithErr()` never accep
 
 When using the Clear Path style with `goto end`, add function-level context once at the `end:` label instead of repeating it at every error creation point:
 
+**Repeated metadata; not recommended:**
+```go
+func (c *Cmd) processFile() (err error) {
+    var filepath dt.Filepath
+
+    filepath = dt.FilepathJoin(c.Dir, "config.json")
+    data, err := filepath.ReadFile()
+    if err != nil {
+        // Repetitive - filepath added here
+        err = NewErr(ErrFileRead, "filepath", filepath, err)
+        goto end
+    }
+
+    err = c.parseData(data)
+    if err != nil {
+        // And again here
+        err = NewErr(ErrParsing, "filepath", filepath, err)
+        goto end
+    }
+
+end:
+    return err
+}
+```
+
 **Preferred pattern:**
 ```go
 func (c *Cmd) processFile() (err error) {
@@ -329,31 +396,6 @@ end:
     if err != nil {
         err = WithErr(err, "filepath", filepath)
     }
-    return err
-}
-```
-
-**Avoid repeating context:**
-```go
-func (c *Cmd) processFile() (err error) {
-    var filepath dt.Filepath
-
-    filepath = dt.FilepathJoin(c.Dir, "config.json")
-    data, err := filepath.ReadFile()
-    if err != nil {
-        // Repetitive - filepath added here
-        err = NewErr(ErrFileRead, "filepath", filepath, err)
-        goto end
-    }
-
-    err = c.parseData(data)
-    if err != nil {
-        // And again here
-        err = NewErr(ErrParsing, "filepath", filepath, err)
-        goto end
-    }
-
-end:
     return err
 }
 ```
@@ -386,15 +428,137 @@ if err != nil {
 errs = append(errs, NewErr(ErrSomethingFailed, err))
 ```
 
+## Type-Safe Metadata with KV Functions
+
+doterr provides **typed KV constructors** for creating metadata, inspired by the `log/slog.Attr` pattern:
+
+```go
+// Typed constructors
+StringKV(key, value string) KV
+IntKV(key string, value int) KV
+Int64KV(key string, value int64) KV
+BoolKV(key string, value bool) KV
+Float64KV(key string, value float64) KV
+AnyKV(key string, value any) KV
+ErrorKV(key string, value error) KV  // For errors as metadata (not causes)
+```
+
+**Benefits:**
+- Type safety at creation time
+- Explicit about value types
+- Self-documenting code
+- Consistent with log/slog patterns
+
+**Usage:**
+
+```go
+err := NewErr(ErrDatabase,
+    StringKV("table", "users"),
+    IntKV("user_id", 42),
+    BoolKV("retry_enabled", true),
+    err, // err is the trailing cause
+)
+```
+
+**Mixing old and new styles:**
+
+```go
+// Both styles work together
+err := NewErr(ErrValidation,
+    "field", "email",              // Old style: string pairs
+    StringKV("pattern", emailRx),  // New style: typed KV
+    IntKV("length", len(email)),   // New style: typed KV
+    "required", true,              // Old style: string pairs
+)
+```
+
+String pairs remain concise for simple cases. Use typed KV functions when you want explicit type safety or are building complex metadata.
+
+## Accumulating Metadata with AppendKV()
+
+`AppendKV()` allows you to **build up metadata throughout a function** before creating an error. It supports three forms and includes **lazy evaluation** for expensive operations:
+
+**Three forms:**
+
+```go
+// 1. Individual KV values
+kvs = AppendKV(kvs, StringKV("name", "Alice"))
+
+// 2. String key-value pairs
+kvs = AppendKV(kvs, "age", 30)
+
+// 3. Lazy evaluation with func()KV
+kvs = AppendKV(kvs, func()KV{
+    return IntKV("stats", generateExpensiveStats())
+})
+```
+
+**Real-world example:**
+
+```go
+func processFile(path string, size int) (err error) {
+    var kvs []KV
+    kvs = AppendKV(kvs, "path", path)
+    kvs = AppendKV(kvs, "size", size)
+
+    if size > 1000 {
+        kvs = AppendKV(kvs, "truncated", true)
+    }
+
+    // Lazy evaluation - only computed if error occurs
+    kvs = AppendKV(kvs, func()KV{
+        return IntKV("checksum", computeChecksum(path))
+    })
+
+    err = validate(path)
+    if err != nil {
+        return NewErr(ErrValidation, kvs, err) // kvs is passed as []KV
+    }
+    return nil  // Happy path - lazy functions never evaluated
+}
+```
+
+**Lazy evaluation benefits:**
+
+- Expensive operations (checksums, stats, formatting) only run on error path
+- Happy path stays fast
+- Uses `sync.Once` internally - safe for concurrent access
+- Evaluated exactly once when error is created
+
+**Integration with NewErr() and WithErr():**
+
+```go
+// Accumulate metadata
+var kvs []KV
+kvs = AppendKV(kvs, "user_id", userID)
+kvs = AppendKV(kvs, "attempt", retryCount)
+
+// Use in NewErr()
+err := NewErr(ErrAuth, kvs, err)
+
+// Use in WithErr()
+err = WithErr(err, kvs)
+```
+
 ## API summary
 
 | Function                                                                                                                  | Purpose                                                                      |
 |---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
 | `NewErr(parts ...any)`                                                                                                    | Create a new entry with sentinels first, metadata, and optional trailing cause. |
+| `MsgErr(msg any)`                                                                                                         | Create ad-hoc error message (string) or wrap error for rapid development.   |
 | `WithErr(err error, parts ...any)`                                                                                        | Enrich existing error by merging into rightmost entry (enrichment only).    |
 | `CombineErrs(errs []error)`                                                                                               | Join multiple independent errors (skips `nil`s, preserves order).           |
 | `AppendErr(errs []error, err error) []error`                                                                              | Append error to slice only if non-nil (convenience to avoid if checks).     |
-| `ErrMeta(err error) []KV`                                                                                                 | Return metadata key/value pairs from first entry (unwraps one level).       |
+| `StringKV(key, value string) KV`                                                                                          | Create string KV pair.                                                       |
+| `IntKV(key string, value int) KV`                                                                                         | Create int KV pair.                                                          |
+| `Int64KV(key string, value int64) KV`                                                                                     | Create int64 KV pair.                                                        |
+| `BoolKV(key string, value bool) KV`                                                                                       | Create bool KV pair.                                                         |
+| `Float64KV(key string, value float64) KV`                                                                                 | Create float64 KV pair.                                                      |
+| `AnyKV(key string, value any) KV`                                                                                         | Create KV pair with any value type.                                         |
+| `ErrorKV(key string, value error) KV`                                                                                     | Create KV pair with error value (for errors as metadata, not causes).       |
+| `AppendKV(kvs []KV, parts ...any) []KV`                                                                                   | Accumulate KV pairs with support for lazy evaluation via func()KV.          |
+| `ErrMeta(err error) []KV`                                                                                                 | Return metadata key/value pairs from all doterr entries (scans recursively).|
+| `ErrValue[T](err error, key string) (T, bool)`                                                                            | Extract single metadata value by key with type safety.                      |
 | `Errors(err error) []error`                                                                                               | Return sentinel/typed errors from first entry (unwraps one level).          |
 | `FindErr[T](err error) (T, bool)`                                                                                         | Extract first typed error of type T using `errors.As`.                      |
 
@@ -405,6 +569,7 @@ errs = append(errs, NewErr(ErrSomethingFailed, err))
 * No recursion deeper than one join level.
 * No reflection or third-party dependencies.
 * Every exported function returns the **built-in `error` type**.
+* Lazy KV evaluation uses `sync.Once` for deferred computation.
 
 ## Cross-package error detection
 
@@ -451,6 +616,26 @@ if errors.Is(err, doterr.ErrCrossPackageError) {
 
 **Best practice:** Each independent package should create and manage its own `doterr` errors. When passing errors between packages, use them as **trailing causes** in `NewErr()` rather than trying to enrich them with `WithErr()`.
 
+**What is a "trailing cause"?**
+
+A **trailing cause** is the error you pass as the last argument to `NewErr()`. It represents the underlying error from a lower layer that caused this layer's error:
+
+```go
+err := lowerLayerFunc()
+if err != nil {
+    return NewErr(ErrRepo,
+        "table", "users",
+        err, // ← This is the "trailing cause"
+    )
+}
+```
+
+The trailing cause:
+- Is always the **last argument** to NewErr()
+- Represents the **underlying error** being wrapped
+- Creates an **error chain** for errors.Is() and errors.As()
+- Should be passed **between layers** but not enriched with WithErr() across package boundaries
+
 ### Why no type introspection?
 
 The API intentionally **does not** provide functions like `IsEntry(err) bool` or `IsCombined(err) bool` to detect internal types.
@@ -477,7 +662,405 @@ The API intentionally **does not** provide functions like `IsEntry(err) bool` or
 
 **Historical note:** Prior art (like Go's stdlib hiding `joinError`) shows that keeping error structure opaque encourages robust, interface-based code. Type introspection leads to fragile coupling to implementation details.
 
+## Security Analysis
+
+`doterr` has an **extremely minimal security surface** and is very unlikely to introduce security vulnerabilities into your application. This section analyzes the security characteristics of the package.
+
+### What doterr Does
+
+From a security perspective, `doterr` is a pure data structure library that:
+
+- Creates error values with structured metadata (key/value pairs)
+- Wraps and unwraps errors using Go's standard `errors` package
+- Stores metadata in Go slices and structs
+- Provides helper functions to extract and format metadata
+- Uses `errors.Join()` to compose error chains
+- Performs string formatting for error messages using Go's standard `fmt` package
+
+### Security Surface Analysis
+
+**✓ No external I/O**
+- **No network operations:** no HTTP, TCP, UDP, or any network protocols
+- **No file system operations:** no reading or writing files
+- **No external process execution:** no os/exec
+- **No environment variable** manipulation
+- **Completely isolated** from external systems
+
+**✓ No parsing of untrusted data**
+- **No complex data format** parsing: no JSON, XML, YAML, etc.
+- **No user input or untrusted strings** parsing
+- Simply **stores key/value pairs** provided by the caller
+- **No interpretation or evaluation** of stored data
+
+**✓ No code execution**
+- **No code execution**
+- **No string evaluation**
+- **No use of `unsafe` package** for memory manipulation
+- **No dynamic dispatch** via reflection or otherwise
+- **Lazy evaluation via `func()KV` **only execute user's own code**, not `doterr`'s
+
+**✓ No cryptography**
+- **No cryptographic** operations
+- **No hashing, encryption, or signing**
+- Uses `crypto/rand` only for generating unique package instance IDs at init time
+
+**✓ Memory safety**
+- Relies on **Go's built-in memory safety guarantees**
+- **No pointer arithmetic** 
+- **No unsafe memory access**
+- **No unbounded memory growth** from doterr operations
+- Memory usage is bounded by caller's metadata size
+
+**✓ Concurrency safety**
+- Uses `sync.Once` for lazy evaluation _(safe for concurrent access)_
+- Lazy KV functions **evaluate exactly once**, thread-safe
+- **No shared mutable state** across goroutines
+- **Error structures are immutable** after creation
+
+**✓ Limited reflection usage**
+- Type assertions **only used for Go generics**, e.g., `ErrValue[T]`
+- **No dynamic type** creation or modification
+- **No reflection-based security bypasses**
+
+### Potential Concerns (All Low Risk)
+
+**1. Memory exhaustion**
+- **Risk:** Caller could create errors with massive amounts of metadata
+- **Mitigation:** Metadata size is bounded by what the caller provides (user-controlled)
+- **Impact:** Same risk as any Go data structure - not specific to `doterr`
+- **Assessment:** Not a security concern _(caller controls their own resource usage)_
+
+**2. Panic conditions**
+- **Risk:** Package includes panics for development-time validation errors
+- **Examples:** `AppendKV()` panics on trailing keys without values
+- **Mitigation:** These catch programmer errors during development, not runtime security issues
+- **Impact:** Panics are documented and expected for API misuse
+- **Assessment:** Design feature for fail-fast behavior on incorrect usage
+
+**3. Error message injection**
+- **Risk:** Could someone inject misleading error messages via metadata?
+- **Mitigation:**
+  - Metadata is structured (not parsed), preventing injection attacks
+  - Error messages are formatted using `fmt.Sprintf` which is safe
+  - No interpretation of metadata content as code or commands
+- **Impact:** No more risk than Go's standard `error` interface
+- **Assessment:** Not a security concern
+
+**4. Cross-package ID collision**
+- **Risk:** Two doterr instances could theoretically generate the same `uniqueId`
+- **Mitigation:** Uses `math/rand.Int()` which has sufficient entropy for process-local uniqueness
+- **Impact:** Would only affect cross-package error detection, not security
+- **Assessment:** Not a security concern (worst case: false negative in development warning)
+
+### Risk Profile Comparison
+
+`doterr`'s security profile is **similar to Go's standard library `errors` package**:
+
+| Package | External I/O | Parsing | Code Execution | Attack Surface |
+|---------|--------------|---------|----------------|----------------|
+| `errors` (stdlib) | None | None | None | Essentially zero |
+| `doterr` | None | None | None | Essentially zero |
+| `fmt` (stdlib) | None (just formatting) | Format strings | None | Minimal |
+| `encoding/json` | None | JSON parsing | None | Low (DoS via large inputs) |
+
+### Conclusion
+
+**`doterr` is extremely unlikely to introduce security vulnerabilities** because:
+
+1. **Zero attack surface** - No external inputs, outputs, or untrusted data handling
+2. **Pure data structures** - Only stores and retrieves metadata provided by the caller
+3. **No code evaluation** - Does not interpret or execute stored data
+4. **Memory safe** - Relies on Go's memory safety with no unsafe operations
+5. **Dependency-free** - Only uses Go standard library (`errors`, `fmt`, `strings`, `sync`)
+
+The security risk of using `doterr` is comparable to using any other standard Go data structure like a `map[string]any` or `[]error`. The package does not process untrusted input, perform privileged operations, or interact with external systems.
+
+**Recommendation:** Treat `doterr` like a utility data structure (similar to `container/list` or `sync.Map`) - it manipulates data you provide but does not introduce security concerns beyond standard Go safety guarantees.
+
+## Objections
+
+### Yet another error package?
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td><code>doterr</code> is <strong>complementary</strong> to existing error packages, not an alternative.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li>Keeps everything as the built-in <code>error</code> type.</li>
+<li>Works with <code>errors.Is()</code>, <code>errors.As()</code>, and <code>errors.Join()</code>.</li>
+<li>Enhances most existing error packages instead of competing with them.</li>
+<li>Supports metadata like <code>slog.Logger</code> supports log attributes.</li>
+<li>Adds error sentinels so downstream code can check errors with <code>errors.Is()</code> instead of parsing strings.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Use only sentinels with <code>errors.Is()</code> and keep everything else as-is.</td>
+</tr>
+</table>
+
+### Metadata keys become schema, and I do not want that
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td>Metadata keys are optional. Use as few or as many as you need.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li><code>doterr</code> treats metadata as structured context, like <code>slog</code> treats log attributes.</li>
+<li>You control which keys you use and how you use them.</li>
+<li>Use metadata to provide context like <code>"user_id"</code> or <code>"path"</code> without encoding it in the error message string.</li>
+<li>Keys are just strings - there's no required schema or validation.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Use sentinels only with <code>errors.Is()</code> and no metadata at all.</td>
+</tr>
+</table>
+
+### I do not want context traces
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td>Metadata traces are optional and not required.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li><code>doterr</code> can capture key/value context at each error-handling layer (not a stack trace).</li>
+<li>This is entirely optional - you can keep errors as shallow as you like.</li>
+<li>You still benefit from sentinel identity with <code>errors.Is()</code> even without any metadata.</li>
+<li>Use metadata only where it adds value for debugging or logging.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Use only sentinels with <code>errors.Is()</code> and skip all metadata.</td>
+</tr>
+</table>
+
+### I do not want to teach new developers a new way
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td><code>doterr</code> works like standard Go errors - just with added metadata support.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li><code>doterr</code> errors are still just <code>error</code> types that work with <code>errors.Is()</code> and <code>errors.As()</code>.</li>
+<li>Developers already familiar with error sentinels will recognize the pattern.</li>
+<li>The metadata is optional - developers can use as much or as little as makes sense.</li>
+<li>Adopt incrementally: start with sentinels at public boundaries, keep internal code unchanged.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Use <code>doterr</code> only for defining error sentinels, nothing else.</td>
+</tr>
+</table>
+
+### I do not want lints policing errors
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td><code>doterr</code> is a library, not a linter. Use it however you want.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li><code>doterr</code> provides functions for creating and enriching errors - no linting required.</li>
+<li>Future tooling may help validate error patterns, but it's completely optional.</li>
+<li>Use <code>doterr</code> with or without any tooling or enforcement.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Use <code>doterr</code> as a simple library with no tooling required.</td>
+</tr>
+</table>
+
+### String matching is the caller's fault
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td>It's still your API - give callers a better option.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li>When you return errors, developers <a href="https://www.hyrumslaw.com/"><strong>will</strong></a> branch on whatever affordance you expose.
+<li>Can you expose sentinel errors, or just the text of your error messages, but you stil expose something.</li>
+<li>If the only affordance is <code>.Error()</code>, callers will parse your message message text as strings.</li>
+<li>Sentinels let callers use <code>errors.Is()</code> instead of string matching.</li>
+<li>This makes error handling more reliable and less brittle.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Export a few sentinels and let error message strings change freely.</td>
+</tr>
+</table>
+
+### Typed errors are enough
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td>Typed errors don't compose well across dependencies.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li>Downstream code often must type-switch across many concrete error types from different packages.</li>
+<li>Adding a method to an error interface is a breaking change for implementers.</li>
+<li>Different libraries invent different type hierarchies, making cross-cutting error handling inconsistent.</li>
+<li>Sentinels work with <code>errors.Is()</code> and don't require type assertions.</li>
+<li>Sentinels enable more reliable error handling with just one quetstion: <em>"What sentinel do I check for?"</em></li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Use sentinels for public error categories; keep typed errors for internal details.</td>
+</tr>
+</table>
+
+### I am shipping software, not taxonomy
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td>Keep it simple - a few sentinels go a long way.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li>You don't need a complex error taxonomy.</li>
+<li>Define sentinels for the error cases you actually have (not theoretical ones).</li>
+<li>Maybe <code>3</code> to <code>5</code> well-chosen sentinels cover most libraries' needs.</li>
+<li>Focus on errors that callers need to handle differently.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Define only the sentinels you already return in practice.</td>
+</tr>
+</table>
+
+### This is overkill for small libraries
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td>Start small - even one sentinel is useful.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li>Small libraries often export just a few error types.</li>
+<li>Using sentinels lets callers check errors with <code>errors.Is()</code> instead of parsing strings.</li>
+<li>You can start with one or two sentinels and no metadata.</li>
+<li>The overhead is minimal - just define error variables.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Define 1-3 sentinel errors for your library's main error cases.</td>
+</tr>
+</table>
+
+### I don't want another dependency to manage
+
+<table>
+<tr>
+<td valign="top"><strong>Short answer:</strong></td>
+<td><code>doterr</code> is embedded vs. imported, and essentially finished; <strong>no need to ever update</strong>.</td>
+</tr>
+<tr>
+<td valign="top"><strong>Longer answer:</strong></td>
+<td>
+<ul>
+<li><code>doterr</code> is feature-complete for its intended purpose - no new features are planned.</li>
+<li>Drop in <code>doterr</code> and <strong><em>you'll likely never need to update it</em></strong></li>
+<li>You won't need to update unless you actively want to use new features.</li>
+<li>It works like your own code, once you add it, it just works.</li>
+<li>The security surface is minimal, see <a href="#security-analysis">Security Analysis</a>.</li>
+<li>However, any future changes <strong>will</strong> be backward-compatible<sup>*</sup>.
+</li>
+<li>Treat it like part of the Go standard library with the same compatibility guarantees.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Security profile:</strong></td>
+<td>
+<ul>
+<li><code>doterr</code> has essentially <strong>zero security surface area</strong>.</li>
+<li>It performs <strong>no I/O</strong> <em>(no network, files, or external communication)</em>.</li>
+<li>It <strong>does not parse untrusted data</strong>.</li>
+<li>It <strong>does not execute untrusted code</strong>.</li>
+<li>It is a <strong>pure data structure library</strong> like the standard <code>errors</code> package.</li>
+<li>The risk profile is similar to using Go's built-in error handling - <em>virtually none</em>.</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td valign="top"><strong>Minimal adoption:</strong></td>
+<td>Add it as a dependency once:
+<ul>
+<li><em>Then</em> <strong>forget about it</strong>.</li>
+<li><code>doterr</code> will continue working without updates.</li>
+</ul>
+</td>
+</tr>
+</table>
+
+`*` Backward compatibility is guaranteed, _with_ **one** small caveat:
+1. Any new public functions could conflict with existing functions in packages that embed `doterr`.
+    - However developers should notice immediately since the updated package will no longer compile.
+    - If there is breakage it will likely be easy for a developer to resolve; just rename the function.
+    - On the other hand there is _(almost?)_ no reason developers will be **required** to update.
+    - By the very nature of `doterr`, different versions of `doterr` can coexists across different packages.
+    - _Still,_ we have **NO PLANS** to add new functions, and
+    - We will not decide to add a new function without serious consideration of potential breakage.
+
+## Stability and Deprecation
+
+doterr follows the stability levels and deprecation policies defined in the go-dt package:
+
+- **Stability Levels**: See [go-dt/adrs/adr-2025-12-20-stability-levels.md](/Users/mikeschinkel/Projects/go-dt/adrs/adr-2025-12-20-stability-levels.md) for definitions of stable, evolving, experimental, deprecated, obsolete, and internal stability levels.
+- **Error Sentinels**: See [adrs/adr-2025-12-20-error-sentinel-strategy.md](adrs/adr-2025-12-20-error-sentinel-strategy.md) for error-specific naming conventions and migration strategies.
+
+**Tooling support:** Automated stability validation and deprecation tracking will be provided by [Squire](https://github.com/mikeschinkel/squire) as part of its API Stability Management features.
+
 ## License
 
 MIT — © 2025 Mike Schinkel [mike@newclarity.net](mailto:mike@newclarity.net)
-
