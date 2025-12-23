@@ -20,12 +20,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// go provides a tiny, stdlib-only way to attach structured metadata
+// doterr.go provides a tiny, stdlib-only way to attach structured metadata
 // and sentinels to errors while staying fully composable with the Go standard
 // library. The model is:
 //
 //   - Each function builds an entry with New(...) passing an optional trailing cause:
-//     return New(ErrRepo, "key", val, cause) // cause last
+//     return NewErr(ErrRepo, "key", val, cause) // cause last
 //
 //   - With(...) is a flexible convenience for same-function enrichment. It can:
 //
@@ -179,10 +179,10 @@ func MsgErr(msg any) error {
 // WithErr is a flexible enrichment helper. Typical uses:
 //
 //	// Enrich an existing composite error (err may be an errors.Join tree):
-//	err = With(err, "Foo", 10)
+//	err = WithErr(err, "Foo", 10)
 //
 //	// Build an entry and join a trailing cause in one shot:
-//	err = With("endpoint", ep, ErrTemplate, cause) // 'cause' is last
+//	err = WithErr("endpoint", ep, ErrTemplate, cause) // 'cause' is last
 //
 // Behavior:
 //
@@ -202,7 +202,7 @@ func MsgErr(msg any) error {
 //
 // Note: For inter-function composition, prefer New() with trailing cause:
 //
-//	return New(ErrRepo, "key", val, cause) // cause last
+//	return NewErr(ErrRepo, "key", val, cause) // cause last
 //
 //goland:noinspection DuplicatedCode
 func WithErr(parts ...any) error {
@@ -735,8 +735,9 @@ end:
 func validateNewParts(parts []any) error {
 	if len(parts) == 0 {
 		// Build entry manually to avoid recursion
+		// TODO: We need to review the validity of this after introductin of MsgErr()
 		e := newEntry([]error{ErrMissingSentinel}, []kv{
-			{k: "message", v: "New requires at least one sentinel error"},
+			{k: "message", v: "NewErr requires at least one sentinel error"},
 		})
 		return e
 	}
@@ -756,8 +757,9 @@ func validateNewParts(parts []any) error {
 	// Must have at least one sentinel
 	if sentinelCount == 0 {
 		// Build entry manually to avoid recursion
+		// TODO: We need to review the validity of this after introductin of MsgErr()
 		e := newEntry([]error{ErrMissingSentinel}, []kv{
-			{k: "message", v: "New requires at least one sentinel error as the first argument"},
+			{k: "message", v: "NewErr requires at least one sentinel error as the first argument"},
 		})
 		return e
 	}
