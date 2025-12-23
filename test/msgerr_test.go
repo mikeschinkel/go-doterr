@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mikeschinkel/go-doterr"
+	"github.com/mikeschinkel/go-dt"
 )
 
 // TestMsgErr_String tests creating msgErr with a string message
 func TestMsgErr_String(t *testing.T) {
-	err := doterr.MsgErr("operation failed")
+	err := MsgErr("operation failed")
 	if err == nil {
 		t.Fatal("Expected error, got nil")
 	}
@@ -22,7 +22,7 @@ func TestMsgErr_String(t *testing.T) {
 // TestMsgErr_WrapError tests wrapping an existing error with msgErr
 func TestMsgErr_WrapError(t *testing.T) {
 	original := errors.New("underlying problem")
-	wrapped := doterr.MsgErr(original)
+	wrapped := MsgErr(original)
 
 	if wrapped == nil {
 		t.Fatal("Expected error, got nil")
@@ -53,7 +53,7 @@ func TestMsgErr_InvalidType(t *testing.T) {
 	}()
 
 	// Should panic
-	doterr.MsgErr(123)
+	dt.LogOnError(MsgErr(123))
 }
 
 // TestMsgErr_ErrorChainPreservation tests that error chains are preserved
@@ -61,7 +61,7 @@ func TestMsgErr_ErrorChainPreservation(t *testing.T) {
 	// Create chain: root -> middle -> wrapped
 	root := errors.New("root cause")
 	middle := errors.Join(errors.New("middle error"), root)
-	wrapped := doterr.MsgErr(middle)
+	wrapped := MsgErr(middle)
 
 	// Should be able to find root through the chain
 	if !errors.Is(wrapped, root) {
@@ -71,7 +71,7 @@ func TestMsgErr_ErrorChainPreservation(t *testing.T) {
 
 // TestNewErr_WithMsgErr tests using MsgErr as a sentinel replacement
 func TestNewErr_WithMsgErr(t *testing.T) {
-	err := doterr.NewErr(doterr.MsgErr("validation failed"), "field", "email")
+	err := NewErr(MsgErr("validation failed"), "field", "email")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -88,8 +88,8 @@ func TestNewErr_WithMsgErr(t *testing.T) {
 
 // TestWithErr_WithMsgErr tests using MsgErr in context layering
 func TestWithErr_WithMsgErr(t *testing.T) {
-	base := doterr.MsgErr("file read failed")
-	err := doterr.WithErr(base, doterr.MsgErr("config loading failed"))
+	base := MsgErr("file read failed")
+	err := WithErr(base, MsgErr("config loading failed"))
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -110,7 +110,7 @@ func TestMsgErr_MixedWithSentinels(t *testing.T) {
 	var ErrSentinel = errors.New("sentinel error")
 
 	// Use both sentinel and MsgErr
-	err := doterr.NewErr(ErrSentinel, doterr.MsgErr("additional context"), "key", "value")
+	err := NewErr(ErrSentinel, MsgErr("additional context"), "key", "value")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -136,7 +136,7 @@ func TestMsgErr_TypeDetection(t *testing.T) {
 	// because it's unexported. This test verifies the behavior exists,
 	// but tooling would use type assertions in the doterr package itself.
 
-	msgErrInstance := doterr.MsgErr("ad-hoc message")
+	msgErrInstance := MsgErr("ad-hoc message")
 	standardErr := errors.New("standard sentinel")
 
 	// Both are errors
@@ -148,8 +148,8 @@ func TestMsgErr_TypeDetection(t *testing.T) {
 	}
 
 	// msgErr can be used in NewErr just like a sentinel
-	err1 := doterr.NewErr(msgErrInstance, "key", "value")
-	err2 := doterr.NewErr(standardErr, "key", "value")
+	err1 := NewErr(msgErrInstance, "key", "value")
+	err2 := NewErr(standardErr, "key", "value")
 
 	if err1 == nil || err2 == nil {
 		t.Fatal("Expected both errors to be created successfully")
@@ -158,8 +158,8 @@ func TestMsgErr_TypeDetection(t *testing.T) {
 
 // TestMsgErr_WithMetadata tests adding metadata to MsgErr
 func TestMsgErr_WithMetadata(t *testing.T) {
-	err := doterr.MsgErr("config invalid")
-	err = doterr.WithErr(err, "path", "/etc/app.conf")
+	err := MsgErr("config invalid")
+	err = WithErr(err, "path", "/etc/app.conf")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -178,9 +178,9 @@ func TestMsgErr_WithMetadata(t *testing.T) {
 // TestMsgErr_AsTrailingCause tests using MsgErr as a trailing cause
 func TestMsgErr_AsTrailingCause(t *testing.T) {
 	var ErrSentinel = errors.New("operation failed")
-	cause := doterr.MsgErr("underlying issue")
+	cause := MsgErr("underlying issue")
 
-	err := doterr.NewErr(ErrSentinel, "key", "value", cause)
+	err := NewErr(ErrSentinel, "key", "value", cause)
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -206,11 +206,11 @@ func TestMsgErr_RealWorldPattern(t *testing.T) {
 	// Simulate a function that uses MsgErr during rapid development
 	processFile := func(path string) error {
 		// Start with MsgErr
-		err := doterr.MsgErr("file processing failed")
+		err := MsgErr("file processing failed")
 
 		// Add metadata as needed
-		err = doterr.WithErr(err, "path", path)
-		err = doterr.WithErr(err, "operation", "validate")
+		err = WithErr(err, "path", path)
+		err = WithErr(err, "operation", "validate")
 
 		return err
 	}

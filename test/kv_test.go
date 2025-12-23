@@ -4,57 +4,55 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/mikeschinkel/go-doterr"
 )
 
 // Test typed KV constructors
 func TestTypedKVConstructors(t *testing.T) {
 	tests := []struct {
 		name    string
-		kv      doterr.KV
+		kv      ErrKV
 		wantKey string
 		wantVal any
 	}{
 		{
 			name:    "StringKV",
-			kv:      doterr.StringKV("name", "Alice"),
+			kv:      StringKV("name", "Alice"),
 			wantKey: "name",
 			wantVal: "Alice",
 		},
 		{
 			name:    "IntKV",
-			kv:      doterr.IntKV("count", 42),
+			kv:      IntKV("count", 42),
 			wantKey: "count",
 			wantVal: 42,
 		},
 		{
 			name:    "Int64KV",
-			kv:      doterr.Int64KV("id", int64(9876543210)),
+			kv:      Int64KV("id", int64(9876543210)),
 			wantKey: "id",
 			wantVal: int64(9876543210),
 		},
 		{
 			name:    "BoolKV",
-			kv:      doterr.BoolKV("active", true),
+			kv:      BoolKV("active", true),
 			wantKey: "active",
 			wantVal: true,
 		},
 		{
 			name:    "Float64KV",
-			kv:      doterr.Float64KV("price", 19.99),
+			kv:      Float64KV("price", 19.99),
 			wantKey: "price",
 			wantVal: 19.99,
 		},
 		{
 			name:    "AnyKV",
-			kv:      doterr.AnyKV("data", map[string]int{"a": 1}),
+			kv:      AnyKV("data", map[string]int{"a": 1}),
 			wantKey: "data",
 			wantVal: map[string]int{"a": 1},
 		},
 		{
 			name:    "ErrorKV",
-			kv:      doterr.ErrorKV("cause", errors.New("test error")),
+			kv:      ErrorKV("cause", errors.New("test error")),
 			wantKey: "cause",
 			wantVal: errors.New("test error"),
 		},
@@ -93,10 +91,10 @@ func TestTypedKVConstructors(t *testing.T) {
 func TestTypedKVInNewErr(t *testing.T) {
 	sentinel := errors.New("test error")
 
-	err := doterr.NewErr(sentinel,
-		doterr.StringKV("name", "Alice"),
-		doterr.IntKV("age", 30),
-		doterr.BoolKV("active", true),
+	err := NewErr(sentinel,
+		StringKV("name", "Alice"),
+		IntKV("age", 30),
+		BoolKV("active", true),
 	)
 
 	if err == nil {
@@ -104,7 +102,7 @@ func TestTypedKVInNewErr(t *testing.T) {
 	}
 
 	// Verify metadata
-	meta := doterr.ErrMeta(err)
+	meta := ErrMeta(err)
 	if len(meta) != 3 {
 		t.Fatalf("Expected 3 metadata items, got %d", len(meta))
 	}
@@ -123,10 +121,10 @@ func TestTypedKVInNewErr(t *testing.T) {
 
 // Test AppendKV with KV values
 func TestAppendKVWithKVValues(t *testing.T) {
-	var kvs []doterr.KV
+	var kvs []ErrKV
 
-	kvs = doterr.AppendKV(kvs, doterr.StringKV("name", "Bob"))
-	kvs = doterr.AppendKV(kvs, doterr.IntKV("age", 25))
+	kvs = AppendKV(kvs, StringKV("name", "Bob"))
+	kvs = AppendKV(kvs, IntKV("age", 25))
 
 	if len(kvs) != 2 {
 		t.Fatalf("Expected 2 KV values, got %d", len(kvs))
@@ -142,10 +140,10 @@ func TestAppendKVWithKVValues(t *testing.T) {
 
 // Test AppendKV with string pairs
 func TestAppendKVWithStringPairs(t *testing.T) {
-	var kvs []doterr.KV
+	var kvs []ErrKV
 
-	kvs = doterr.AppendKV(kvs, "city", "NYC")
-	kvs = doterr.AppendKV(kvs, "country", "USA")
+	kvs = AppendKV(kvs, "city", "NYC")
+	kvs = AppendKV(kvs, "country", "USA")
 
 	if len(kvs) != 2 {
 		t.Fatalf("Expected 2 KV values, got %d", len(kvs))
@@ -161,12 +159,12 @@ func TestAppendKVWithStringPairs(t *testing.T) {
 
 // Test AppendKV with mixed inputs
 func TestAppendKVWithMixedInputs(t *testing.T) {
-	var kvs []doterr.KV
+	var kvs []ErrKV
 
-	kvs = doterr.AppendKV(kvs,
-		doterr.StringKV("name", "Charlie"),
+	kvs = AppendKV(kvs,
+		StringKV("name", "Charlie"),
 		"age", 35,
-		doterr.BoolKV("active", false),
+		BoolKV("active", false),
 	)
 
 	if len(kvs) != 3 {
@@ -197,8 +195,8 @@ func TestAppendKVPanicOnTrailingKey(t *testing.T) {
 		}
 	}()
 
-	var kvs []doterr.KV
-	kvs = doterr.AppendKV(kvs, "incomplete")
+	var kvs []ErrKV
+	kvs = AppendKV(kvs, "incomplete")
 }
 
 // Test AppendKV panic on invalid type
@@ -214,18 +212,18 @@ func TestAppendKVPanicOnInvalidType(t *testing.T) {
 		}
 	}()
 
-	var kvs []doterr.KV
-	kvs = doterr.AppendKV(kvs, 123)
+	var kvs []ErrKV
+	kvs = AppendKV(kvs, 123)
 }
 
 // Test lazy evaluation timing
 func TestLazyEvaluationTiming(t *testing.T) {
 	evaluationCount := 0
 
-	var kvs []doterr.KV
-	kvs = doterr.AppendKV(kvs, func() doterr.KV {
+	var kvs []ErrKV
+	kvs = AppendKV(kvs, func() ErrKV {
 		evaluationCount++
-		return doterr.StringKV("expensive", "computed")
+		return StringKV("expensive", "computed")
 	})
 
 	// After AppendKV, function should NOT have been evaluated yet
@@ -241,7 +239,7 @@ func TestLazyEvaluationTiming(t *testing.T) {
 
 	// Error path - create error with kvs
 	sentinel := errors.New("test error")
-	err := doterr.NewErr(sentinel, kvs)
+	err := NewErr(sentinel, kvs)
 
 	// Now function should have been evaluated exactly once
 	if evaluationCount != 1 {
@@ -249,7 +247,7 @@ func TestLazyEvaluationTiming(t *testing.T) {
 	}
 
 	// Verify metadata contains the lazy value
-	meta := doterr.ErrMeta(err)
+	meta := ErrMeta(err)
 	if len(meta) != 1 {
 		t.Fatalf("Expected 1 metadata item, got %d", len(meta))
 	}
@@ -266,18 +264,18 @@ func TestLazyEvaluationTiming(t *testing.T) {
 
 // Test []KV in NewErr
 func TestSliceKVInNewErr(t *testing.T) {
-	var kvs []doterr.KV
-	kvs = doterr.AppendKV(kvs, "user_id", 123)
-	kvs = doterr.AppendKV(kvs, "action", "login")
+	var kvs []ErrKV
+	kvs = AppendKV(kvs, "user_id", 123)
+	kvs = AppendKV(kvs, "action", "login")
 
 	sentinel := errors.New("auth error")
-	err := doterr.NewErr(sentinel, kvs)
+	err := NewErr(sentinel, kvs)
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
 	}
 
-	meta := doterr.ErrMeta(err)
+	meta := ErrMeta(err)
 	if len(meta) != 2 {
 		t.Fatalf("Expected 2 metadata items, got %d", len(meta))
 	}
@@ -292,16 +290,16 @@ func TestSliceKVInNewErr(t *testing.T) {
 
 // Test []KV in WithErr
 func TestSliceKVInWithErr(t *testing.T) {
-	var kvs []doterr.KV
-	kvs = doterr.AppendKV(kvs, "retry_count", 3)
+	var kvs []ErrKV
+	kvs = AppendKV(kvs, "retry_count", 3)
 
 	sentinel1 := errors.New("base error")
-	err1 := doterr.NewErr(sentinel1, "request_id", "abc123")
+	err1 := NewErr(sentinel1, "request_id", "abc123")
 
 	sentinel2 := errors.New("enriched error")
-	err2 := doterr.WithErr(err1, sentinel2, kvs)
+	err2 := WithErr(err1, sentinel2, kvs)
 
-	meta := doterr.ErrMeta(err2)
+	meta := ErrMeta(err2)
 	if len(meta) < 2 {
 		t.Fatalf("Expected at least 2 metadata items, got %d", len(meta))
 	}
@@ -331,9 +329,9 @@ func TestDirectFuncKVInNewErr(t *testing.T) {
 	evaluationCount := 0
 
 	sentinel := errors.New("test error")
-	err := doterr.NewErr(sentinel, func() doterr.KV {
+	err := NewErr(sentinel, func() ErrKV {
 		evaluationCount++
-		return doterr.StringKV("lazy", "value")
+		return StringKV("lazy", "value")
 	})
 
 	// Function should have been evaluated once at error creation
@@ -341,7 +339,7 @@ func TestDirectFuncKVInNewErr(t *testing.T) {
 		t.Errorf("Expected 1 evaluation, got %d", evaluationCount)
 	}
 
-	meta := doterr.ErrMeta(err)
+	meta := ErrMeta(err)
 	if len(meta) != 1 {
 		t.Fatalf("Expected 1 metadata item, got %d", len(meta))
 	}
@@ -354,14 +352,14 @@ func TestDirectFuncKVInNewErr(t *testing.T) {
 // Test mixed old and new styles
 func TestMixedOldAndNewStyles(t *testing.T) {
 	sentinel := errors.New("mixed error")
-	err := doterr.NewErr(sentinel,
+	err := NewErr(sentinel,
 		"old_key", "old_value", // Old style
-		doterr.StringKV("new_key", "new_value"), // New style
-		"another_old", 42,                       // Old style
-		doterr.IntKV("another_new", 99), // New style
+		StringKV("new_key", "new_value"), // New style
+		"another_old", 42,                // Old style
+		IntKV("another_new", 99), // New style
 	)
 
-	meta := doterr.ErrMeta(err)
+	meta := ErrMeta(err)
 	if len(meta) != 4 {
 		t.Fatalf("Expected 4 metadata items, got %d", len(meta))
 	}
@@ -388,14 +386,14 @@ func TestMixedOldAndNewStyles(t *testing.T) {
 
 // Test parity checking with []KV
 func TestParityCheckingWithSliceKV(t *testing.T) {
-	var kvs []doterr.KV
-	kvs = doterr.AppendKV(kvs, "field", "value")
+	var kvs []ErrKV
+	kvs = AppendKV(kvs, "field", "value")
 
 	sentinel := errors.New("test error")
 	cause := errors.New("cause error")
 
 	// []KV should be treated as single item, so this should have trailing cause
-	err := doterr.NewErr(sentinel, kvs, cause)
+	err := NewErr(sentinel, kvs, cause)
 
 	// Verify cause is present
 	if !errors.Is(err, cause) {
@@ -409,8 +407,8 @@ func TestParityCheckingWithFuncKV(t *testing.T) {
 	cause := errors.New("cause error")
 
 	// func()KV should be treated as single item, so this should have trailing cause
-	err := doterr.NewErr(sentinel, func() doterr.KV {
-		return doterr.StringKV("lazy", "value")
+	err := NewErr(sentinel, func() ErrKV {
+		return StringKV("lazy", "value")
 	}, cause)
 
 	// Verify cause is present
@@ -423,17 +421,17 @@ func TestParityCheckingWithFuncKV(t *testing.T) {
 func TestRealWorldAccumulateMetadata(t *testing.T) {
 	// Simulate a function that accumulates metadata
 	processFile := func(path string, size int, shouldFail bool) error {
-		var kvs []doterr.KV
-		kvs = doterr.AppendKV(kvs, "path", path)
-		kvs = doterr.AppendKV(kvs, "size", size)
+		var kvs []ErrKV
+		kvs = AppendKV(kvs, "path", path)
+		kvs = AppendKV(kvs, "size", size)
 
 		if size > 1000 {
-			kvs = doterr.AppendKV(kvs, "truncated", true)
+			kvs = AppendKV(kvs, "truncated", true)
 		}
 
 		if shouldFail {
 			sentinel := errors.New("processing failed")
-			return doterr.NewErr(sentinel, kvs)
+			return NewErr(sentinel, kvs)
 		}
 
 		return nil
@@ -451,7 +449,7 @@ func TestRealWorldAccumulateMetadata(t *testing.T) {
 		t.Fatal("Expected error, got nil")
 	}
 
-	meta := doterr.ErrMeta(err)
+	meta := ErrMeta(err)
 	if len(meta) != 3 {
 		t.Fatalf("Expected 3 metadata items, got %d", len(meta))
 	}

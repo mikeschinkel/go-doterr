@@ -4,8 +4,6 @@ import (
 	"errors"
 	"os"
 	"testing"
-
-	. "github.com/mikeschinkel/go-doterr"
 )
 
 var (
@@ -364,7 +362,7 @@ func TestValidationErrors_UseSentinels(t *testing.T) {
 
 // Test cross-package error detection
 // Note: This test simulates cross-package errors by creating a mock entry
-// In reality, this would happen when errors from different doterr.go copies
+// In reality, this would happen when errors from different go copies
 // are mixed together.
 
 func TestWithErr_DetectsCrossPackageErrors_BaseError(t *testing.T) {

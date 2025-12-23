@@ -6,21 +6,12 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/mikeschinkel/go-doterr"
 )
 
 var (
-	ErrTestSentinel   = errors.New("test sentinel")
-	ErrOtherSentinel  = errors.New("other sentinel")
-	ErrCause          = errors.New("cause error")
-	ErrValidation     = errors.New("validation error")
-	ErrNetwork        = errors.New("network error")
-	ErrDatabase       = errors.New("database error")
-	ErrAuthentication = errors.New("authentication error")
-	ErrAuthorization  = errors.New("authorization error")
-	ErrNotFound       = errors.New("not found")
-	ErrInvalidInput   = errors.New("invalid input")
+	ErrTestSentinel  = errors.New("test sentinel")
+	ErrOtherSentinel = errors.New("other sentinel")
+	ErrCause         = errors.New("cause error")
 )
 
 // FuzzNewErr tests the NewErr function with various inputs to detect panics,
@@ -90,7 +81,7 @@ func FuzzNewErr(f *testing.F) {
 				parts = append(parts, ErrCause)
 			}
 
-			result = doterr.NewErr(parts...)
+			result = NewErr(parts...)
 		}()
 
 		select {
@@ -142,7 +133,7 @@ func FuzzWithErr(f *testing.F) {
 
 			// Optionally start with base error
 			if withBase {
-				base := doterr.NewErr(ErrTestSentinel, "base_key", "base_value")
+				base := NewErr(ErrTestSentinel, "base_key", "base_value")
 				parts = append(parts, base)
 			}
 
@@ -162,7 +153,7 @@ func FuzzWithErr(f *testing.F) {
 				parts = append(parts, ErrCause)
 			}
 
-			result = doterr.WithErr(parts...)
+			result = WithErr(parts...)
 		}()
 
 		select {
@@ -213,14 +204,14 @@ func FuzzCombineErrs(f *testing.F) {
 				}
 
 				if withMetadata {
-					errs[i] = doterr.NewErr(ErrTestSentinel, "index", i, "value", i*10)
+					errs[i] = NewErr(ErrTestSentinel, "index", i, "value", i*10)
 				} else {
 					// Create simple errors
 					errs[i] = errors.New("error " + string(rune(i)))
 				}
 			}
 
-			result = doterr.CombineErrs(errs)
+			result = CombineErrs(errs)
 		}()
 
 		select {
@@ -251,7 +242,7 @@ func FuzzErrMeta(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, key, value string, multipleKVs, withJoin bool) {
 		done := make(chan struct{})
-		var result []doterr.KV
+		var result []ErrKV
 
 		go func() {
 			defer func() {
@@ -265,7 +256,7 @@ func FuzzErrMeta(f *testing.F) {
 			var err error
 			if withJoin {
 				// Create joined error
-				err1 := doterr.NewErr(ErrTestSentinel, key, value)
+				err1 := NewErr(ErrTestSentinel, key, value)
 				err2 := errors.New("other error")
 				err = errors.Join(err1, err2)
 			} else {
@@ -276,10 +267,10 @@ func FuzzErrMeta(f *testing.F) {
 				if multipleKVs {
 					parts = append(parts, "key2", "value2", "key3", 123)
 				}
-				err = doterr.NewErr(parts...)
+				err = NewErr(parts...)
 			}
 
-			result = doterr.ErrMeta(err)
+			result = ErrMeta(err)
 		}()
 
 		select {
@@ -319,12 +310,12 @@ func FuzzErrValue(f *testing.F) {
 
 			var err error
 			if storeKey != "" {
-				err = doterr.NewErr(ErrTestSentinel, storeKey, "test_value")
+				err = NewErr(ErrTestSentinel, storeKey, "test_value")
 			} else {
-				err = doterr.NewErr(ErrTestSentinel)
+				err = NewErr(ErrTestSentinel)
 			}
 
-			resultValue, resultOk = doterr.ErrValue[string](err, lookupKey)
+			resultValue, resultOk = ErrValue[string](err, lookupKey)
 		}()
 
 		select {

@@ -26,7 +26,7 @@ If you find value in this project and want to use it, please start a discussion 
 - **Typed KV functions** — Type-safe metadata (StringKV, IntKV, BoolKV, etc.)
 - **AppendKV()** — Accumulate metadata with lazy evaluation
 
-Every error value returned by any function of `doterr` returns a Go standard library `error`. The only exported type besides `error` is the `KV` interface for metadata key/value pairs. There are no exported concrete types, no reflection, and no dependency lock-in. You can use `doterr` with any Go app that uses standard Go error handling, and you can adopt it incrementally over time.
+Every error value returned by any function of `doterr` returns a Go standard library `error`. The only exported type besides `error` is the `ErrKV` interface for metadata key/value pairs. There are no exported concrete types, no reflection, and no dependency lock-in. You can use `doterr` with any Go app that uses standard Go error handling, and you can adopt it incrementally over time.
 
 Use `doterr` to:
 
@@ -430,17 +430,17 @@ errs = append(errs, NewErr(ErrSomethingFailed, err))
 
 ## Type-Safe Metadata with KV Functions
 
-doterr provides **typed KV constructors** for creating metadata, inspired by the `log/slog.Attr` pattern:
+doterr provides **typed ErrKV constructors** for creating metadata, inspired by the `log/slog.Attr` pattern:
 
 ```go
 // Typed constructors
-StringKV(key, value string) KV
-IntKV(key string, value int) KV
-Int64KV(key string, value int64) KV
-BoolKV(key string, value bool) KV
-Float64KV(key string, value float64) KV
-AnyKV(key string, value any) KV
-ErrorKV(key string, value error) KV  // For errors as metadata (not causes)
+StringKV(key, value string) ErrKV
+IntKV(key string, value int) ErrKV
+Int64KV(key string, value int64) ErrKV
+BoolKV(key string, value bool) ErrKV
+Float64KV(key string, value float64) ErrKV
+AnyKV(key string, value any) ErrKV
+ErrorKV(key string, value error) ErrKV  // For errors as metadata (not causes)
 ```
 
 **Benefits:**
@@ -466,8 +466,8 @@ err := NewErr(ErrDatabase,
 // Both styles work together
 err := NewErr(ErrValidation,
     "field", "email",              // Old style: string pairs
-    StringKV("pattern", emailRx),  // New style: typed KV
-    IntKV("length", len(email)),   // New style: typed KV
+    StringKV("pattern", emailRx),  // New style: typed ErrKV
+    IntKV("length", len(email)),   // New style: typed ErrKV
     "required", true,              // Old style: string pairs
 )
 ```
@@ -481,14 +481,14 @@ String pairs remain concise for simple cases. Use typed KV functions when you wa
 **Three forms:**
 
 ```go
-// 1. Individual KV values
+// 1. Individual ErrKV values
 kvs = AppendKV(kvs, StringKV("name", "Alice"))
 
 // 2. String key-value pairs
 kvs = AppendKV(kvs, "age", 30)
 
-// 3. Lazy evaluation with func()KV
-kvs = AppendKV(kvs, func()KV{
+// 3. Lazy evaluation with func()ErrKV
+kvs = AppendKV(kvs, func()ErrKV{
     return IntKV("stats", generateExpensiveStats())
 })
 ```
@@ -497,7 +497,7 @@ kvs = AppendKV(kvs, func()KV{
 
 ```go
 func processFile(path string, size int) (err error) {
-    var kvs []KV
+    var kvs []ErrKV
     kvs = AppendKV(kvs, "path", path)
     kvs = AppendKV(kvs, "size", size)
 
@@ -506,13 +506,13 @@ func processFile(path string, size int) (err error) {
     }
 
     // Lazy evaluation - only computed if error occurs
-    kvs = AppendKV(kvs, func()KV{
+    kvs = AppendKV(kvs, func()ErrKV{
         return IntKV("checksum", computeChecksum(path))
     })
 
     err = validate(path)
     if err != nil {
-        return NewErr(ErrValidation, kvs, err) // kvs is passed as []KV
+        return NewErr(ErrValidation, kvs, err) // kvs is passed as []ErrKV
     }
     return nil  // Happy path - lazy functions never evaluated
 }
@@ -529,7 +529,7 @@ func processFile(path string, size int) (err error) {
 
 ```go
 // Accumulate metadata
-var kvs []KV
+var kvs []ErrKV
 kvs = AppendKV(kvs, "user_id", userID)
 kvs = AppendKV(kvs, "attempt", retryCount)
 
@@ -549,15 +549,15 @@ err = WithErr(err, kvs)
 | `WithErr(err error, parts ...any)`                                                                                        | Enrich existing error by merging into rightmost entry (enrichment only).    |
 | `CombineErrs(errs []error)`                                                                                               | Join multiple independent errors (skips `nil`s, preserves order).           |
 | `AppendErr(errs []error, err error) []error`                                                                              | Append error to slice only if non-nil (convenience to avoid if checks).     |
-| `StringKV(key, value string) KV`                                                                                          | Create string KV pair.                                                       |
-| `IntKV(key string, value int) KV`                                                                                         | Create int KV pair.                                                          |
-| `Int64KV(key string, value int64) KV`                                                                                     | Create int64 KV pair.                                                        |
-| `BoolKV(key string, value bool) KV`                                                                                       | Create bool KV pair.                                                         |
-| `Float64KV(key string, value float64) KV`                                                                                 | Create float64 KV pair.                                                      |
-| `AnyKV(key string, value any) KV`                                                                                         | Create KV pair with any value type.                                         |
-| `ErrorKV(key string, value error) KV`                                                                                     | Create KV pair with error value (for errors as metadata, not causes).       |
-| `AppendKV(kvs []KV, parts ...any) []KV`                                                                                   | Accumulate KV pairs with support for lazy evaluation via func()KV.          |
-| `ErrMeta(err error) []KV`                                                                                                 | Return metadata key/value pairs from all doterr entries (scans recursively).|
+| `StringKV(key, value string) ErrKV`                                                                                          | Create string ErrKV pair.                                                       |
+| `IntKV(key string, value int) ErrKV`                                                                                         | Create int ErrKV pair.                                                          |
+| `Int64KV(key string, value int64) ErrKV`                                                                                     | Create int64 ErrKV pair.                                                        |
+| `BoolKV(key string, value bool) ErrKV`                                                                                       | Create bool ErrKV pair.                                                         |
+| `Float64KV(key string, value float64) ErrKV`                                                                                 | Create float64 ErrKV pair.                                                      |
+| `AnyKV(key string, value any) ErrKV`                                                                                         | Create ErrKV pair with any value type.                                         |
+| `ErrorKV(key string, value error) ErrKV`                                                                                     | Create ErrKV pair with error value (for errors as metadata, not causes).       |
+| `AppendKV(kvs []ErrKV, parts ...any) []ErrKV`                                                                                   | Accumulate ErrKV pairs with support for lazy evaluation via func()ErrKV.          |
+| `ErrMeta(err error) []ErrKV`                                                                                                 | Return metadata key/value pairs from all doterr entries (scans recursively).|
 | `ErrValue[T](err error, key string) (T, bool)`                                                                            | Extract single metadata value by key with type safety.                      |
 | `Errors(err error) []error`                                                                                               | Return sentinel/typed errors from first entry (unwraps one level).          |
 | `FindErr[T](err error) (T, bool)`                                                                                         | Extract first typed error of type T using `errors.As`.                      |
@@ -569,7 +569,7 @@ err = WithErr(err, kvs)
 * No recursion deeper than one join level.
 * No reflection or third-party dependencies.
 * Every exported function returns the **built-in `error` type**.
-* Lazy KV evaluation uses `sync.Once` for deferred computation.
+* Lazy ErrKV evaluation uses `sync.Once` for deferred computation.
 
 ## Cross-package error detection
 
@@ -697,7 +697,7 @@ From a security perspective, `doterr` is a pure data structure library that:
 - **No string evaluation**
 - **No use of `unsafe` package** for memory manipulation
 - **No dynamic dispatch** via reflection or otherwise
-- **Lazy evaluation via `func()KV` **only execute user's own code**, not `doterr`'s
+- **Lazy evaluation via `func()ErrKV` **only execute user's own code**, not `doterr`'s
 
 **✓ No cryptography**
 - **No cryptographic** operations
