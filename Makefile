@@ -97,8 +97,18 @@ ci: fmt vet lint test-all
 # Usage: make sync DIR=<path> [DRY_RUN=1]
 sync:
 	@if [ "$(DIR)" = "." ]; then \
-		echo "Error: DIR not specified. Usage: make sync DIR=<path>"; \
-		echo "Example: make sync DIR=$$HOME/Projects/xmlui"; \
+		echo "Error: DIR not specified."; \
+		echo ""; \
+		echo "Running \`make sync\` will synchronize all doterr.go in your"; \
+		echo "current directory to all same named files within DIR/*."; \
+		echo ""; \
+		echo "   Usage: make sync DIR=<path>"; \
+		echo ""; \
+		echo "   Example: make sync DIR=~/Projects"; \
+		echo ""; \
 		exit 1; \
 	fi
-	@EXPANDED_DIR=$$(eval echo "$(DIR)") && cd "$$EXPANDED_DIR" && bash $(CURDIR)/scripts/sync.sh
+	@EXPANDED_DIR=$$(eval echo "$(DIR)") && \
+		mkdir -p $(CURDIR)/bin && \
+		$(GO) -C $(CURDIR)/cmd/sync-doterr build -o $(CURDIR)/bin/sync-doterr && \
+		$(CURDIR)/bin/sync-doterr "$$EXPANDED_DIR"

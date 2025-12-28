@@ -106,6 +106,6 @@ Compatibility discipline is respect for stability as well as downstream develope
 
 ## Open items
 
-Comparison: go-semver-audit vs go-nextver
+Comparison: go-semver-audit vs go-tuipoc
 
 This will be added as an appendix when findings are available.

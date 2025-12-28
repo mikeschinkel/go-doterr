@@ -1,3 +1,82 @@
+# TODO: (BEGIN) 
+
+Time to remove `go.mod`?
+
+Add this somewhere, with examples: "Any value passed to WithErr / NewErr that implements ErrKV is treated as metadata; this enables typed metadata via small wrapper types or adapter methods on domain types."
+
+### Custom ErrKV Type
+Example of a custom Error type
+
+```go
+var _ ErrKV = (*widgetId)(nil)
+
+type widgetId struct {
+  id string
+}
+
+func WidgetId(id string) ErrKV {
+  return widgetId{Id: id}
+}
+
+func (w widgetId) Key() string {
+  return "widget_id"
+}
+
+func (w widgetId) Value() any {
+  return w.id
+}
+```
+Then:
+
+```go
+err = NewErr(
+  dt.ErrDoesNotExist,
+  ErrWidgetNotFound,
+  WidgetId("anc123"),  // Return value implements ErrKV()
+)
+```
+
+NOTE: We are thinking about maybe adding an `errkv` subpackage, if a need emerges.
+
+### ErrKV Method
+Example of an ErrKV() method taht can be added to any type:
+
+```go
+// go-dt/filepath.go
+type Filepath string
+func (fp Filepath) ErrKV() ErrKV {
+  return kv{ k: "filepath", v: fp}  
+}
+type ErrKV interface {
+  Key() string
+  Value() any
+}
+type kv struct {
+  k string
+  v any
+}
+func (p kv) Key() string { return p.k }
+func (p kv) Value() any  { return p.v }
+
+```
+Then:
+```go
+var fp dt.Filepath
+...
+err = NewErr(
+  dt.ErrDoesNotExist,
+  dt.ErrFileNotExists,
+  fp.ErrKV(),           // Method returns ErrKV() value 
+)
+```
+NOTE: None of these methods have been added to `go-dt` yet, but we plan to add them.
+
+## Fodder for Objections section
+
+See https://chatgpt.com/share/6949d517-bcec-800a-92f8-c4baab23d781
+
+# TODO: (END)
+
 # doterr
 ## An Embeddable "Drop-In" Error Package for Go
 
