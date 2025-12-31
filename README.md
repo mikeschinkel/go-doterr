@@ -172,7 +172,7 @@ make sync DIR=~/Projects
 
 See [cmd/sync-doterr/README.md](cmd/sync-doterr/README.md) for full documentation.
 
-> **Note:** This is a temporary solution while waiting for generalized drop-in management in [Squire](https://github.com/mikeschinkel/squire). Future tooling will support managing any embeddable source files, not just doterr.go.
+> **Note:** This is a temporary solution while waiting for generalized drop-in management in [Gomion](https://github.com/mikeschinkel/gomion). Future tooling will support managing any embeddable source files, not just doterr.go.
 
 ## Core principles
 
@@ -1138,7 +1138,7 @@ doterr follows the stability levels and deprecation policies defined in the go-d
 - **Stability Levels**: See [go-dt/adrs/adr-2025-12-20-stability-levels.md](/Users/mikeschinkel/Projects/go-dt/adrs/adr-2025-12-20-stability-levels.md) for definitions of stable, evolving, experimental, deprecated, obsolete, and internal stability levels.
 - **Error Sentinels**: See [adrs/adr-2025-12-20-error-sentinel-strategy.md](adrs/adr-2025-12-20-error-sentinel-strategy.md) for error-specific naming conventions and migration strategies.
 
-**Tooling support:** Automated stability validation and deprecation tracking will be provided by [Squire](https://github.com/mikeschinkel/squire) as part of its API Stability Management features.
+**Tooling support:** Automated stability validation and deprecation tracking will be provided by [Gomion](https://github.com/mikeschinkel/gomion) as part of its API Stability Management features.
 
 ## License
 

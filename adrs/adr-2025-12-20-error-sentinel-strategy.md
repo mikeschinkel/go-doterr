@@ -282,8 +282,8 @@ func loadUser(id string) (User, error) {
 Run tooling to analyze error usage:
 
 ```bash
-# Scan for MsgErr usage (hypothetical squire command)
-squire errors scan
+# Scan for MsgErr usage (hypothetical gomion command)
+gomion errors scan
 
 # Output:
 MsgErr instances found:

@@ -2,7 +2,7 @@
 
 A CLI tool for synchronizing `doterr.go` files across multiple Go packages.
 
-> **TEMPORARY SOLUTION:** This tool is a minimal implementation to solve the immediate need of syncing embedded `doterr.go` files. It will be replaced by generic "drop-ins" functionality in [Squire](https://github.com/mikeschinkel/squire) (or its successor), which will support managing any embeddable source files, not just doterr.go.
+> **TEMPORARY SOLUTION:** This tool is a minimal implementation to solve the immediate need of syncing embedded `doterr.go` files. It will be replaced by generic "drop-ins" functionality in [Gomion](https://github.com/mikeschinkel/gomion) (or its successor), which will support managing any embeddable source files, not just doterr.go.
 >
 > This app and its documentation was almost entirely written by AI and as such may or may not be a good representation of best practices of use of `doterr.go`, any of the imports it uses, or Go coding in general.
 

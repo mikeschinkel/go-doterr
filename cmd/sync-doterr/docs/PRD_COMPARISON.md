@@ -1,6 +1,6 @@
 # PRD vs. Implementation Comparison
 
-This document compares the original vision in [PRD.md](PRD.md) with the current `sync-doterr` implementation, and provides recommendations for what to preserve when building the generic _"drop-ins"_ system in [Squire](https://github.com/mikeschinkel/squire).
+This document compares the original vision in [PRD.md](PRD.md) with the current `sync-doterr` implementation, and provides recommendations for what to preserve when building the generic _"drop-ins"_ system in [Gomion](https://github.com/mikeschinkel/gomion).
 
 > **_NOTE_**: This comparison written by AI but not fully reviewed by humans.<br>
 > — **Do not take anything written here as authoritative**.
@@ -27,7 +27,7 @@ The original PRD outlined an ambitious CLI tool with template management, multip
 
 ### ❌ Not Implemented
 
-| Feature | PRD Section | Impact | Priority for Squire |
+| Feature | PRD Section | Impact | Priority for Gomion |
 |---------|-------------|--------|-------------------|
 | **Template system** | 5.1 | No variables (SPDX, version, timestamp) | **HIGH** - Essential for generic drop-ins |
 | **Configuration file** (`doterr.json`) | 5.2 | No persistent settings | **HIGH** - Need package-level config |
@@ -73,7 +73,7 @@ find <root-dir> -name "doterr.go" |
 - doterr-specific (not generic)
 - Manual workflow (no go:generate)
 
-## Recommendations for [Squire](https://github.com/mikeschinkel/squire) _"Drop-ins"_
+## Recommendations for [Gomion](https://github.com/mikeschinkel/gomion) _"Drop-ins"_
 
 ### Must-Have Features (from PRD)
 
@@ -83,7 +83,7 @@ find <root-dir> -name "doterr.go" |
    - Example use cases: error handlers, loggers, config loaders, test helpers
 
 2. **Configuration File** (PRD §5.2)
-   - Format: `.squire.json` or `squire.yaml`
+   - Format: `.gomion.json` or `gomion.yaml`
    - Per-package overrides with glob patterns
    - Multiple drop-in definitions in one config
    - Example:
@@ -107,19 +107,19 @@ find <root-dir> -name "doterr.go" |
      ```
 
 3. **Interactive Setup** (PRD §6.1, §11)
-   - `squire init` - Interactive TUI to select packages
+   - `gomion init` - Interactive TUI to select packages
    - Show package list with toggles
    - Preview changes before applying
    - Use bubbletea for consistent UX
 
 4. **Apply Command** (PRD §6.2)
-   - `squire apply [drop-in-name]` - Apply configuration
+   - `gomion apply [drop-in-name]` - Apply configuration
    - Support `--dry-run` for safety
    - Smart package detection
    - Only update when content differs
 
 5. **Check Command** (PRD §6.3)
-   - `squire check` - Verify no drift (for CI)
+   - `gomion check` - Verify no drift (for CI)
    - Exit non-zero if files out of sync
    - Report which files need updates
 
@@ -131,7 +131,7 @@ find <root-dir> -name "doterr.go" |
    - Lower priority - most projects don't need this
 
 7. **go:generate Integration** (PRD §7)
-   - Auto-add `//go:generate squire apply` directives
+   - Auto-add `//go:generate gomion apply` directives
    - Integrate with standard Go workflows
    - Medium priority - helpful but not critical
 
@@ -171,22 +171,22 @@ find <root-dir> -name "doterr.go" |
 - ✅ Solves immediate need
 - ✅ Zero external dependencies (except go-cliutil/go-dt)
 
-### Phase 2: Squire "Drop-ins" v1
+### Phase 2: Gomion "Drop-ins" v1
 - Implement must-have features (1-5 above)
 - Generic template system
 - Configuration file
 - Interactive TUI setup
 - Apply and check commands
 
-### Phase 3: Squire "Drop-ins" v2
+### Phase 3: Gomion "Drop-ins" v2
 - Add nice-to-have features (6-8 above)
 - Deterministic builds
 - go:generate integration
 - Advanced glob patterns
 
 ### Deprecation
-- Once Squire v1 is stable, deprecate sync-doterr
-- Update doterr README to reference Squire
+- Once Gomion v1 is stable, deprecate sync-doterr
+- Update doterr README to reference Gomion
 - Archive sync-doterr code for reference
 
 ## Key Insights
@@ -197,13 +197,13 @@ find <root-dir> -name "doterr.go" |
 
 3. **Interactive > Declarative** - TUI setup is more important than comprehensive CLI flags.
 
-4. **Generic > Specific** - Squire should handle any embeddable file, not just doterr.go.
+4. **Generic > Specific** - Gomion should handle any embeddable file, not just doterr.go.
 
 5. **Simple > Feature-rich** - Start with core workflow (init → apply → check), add polish later.
 
 ## Decision Matrix
 
-For each PRD feature, should it be included in Squire?
+For each PRD feature, should it be included in Gomion?
 
 | Feature | Include? | Reasoning |
 |---------|----------|-----------|
@@ -225,7 +225,7 @@ For each PRD feature, should it be included in Squire?
 
 ## Conclusion
 
-The PRD outlined a **comprehensive vision** that's still valid for Squire. The current `sync-doterr` is a **pragmatic MVP** that validated the need. When building Squire's drop-ins system:
+The PRD outlined a **comprehensive vision** that's still valid for Gomion. The current `sync-doterr` is a **pragmatic MVP** that validated the need. When building Gomion's drop-ins system:
 
 **Preserve:**
 - Template system with variables
