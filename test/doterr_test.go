@@ -3,6 +3,7 @@ package test
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -124,26 +125,28 @@ func TestNewErr_Invalid_NoSentinel(t *testing.T) {
 }
 
 func TestNewErr_Invalid_TrailingKeyWithoutValue(t *testing.T) {
-	err := NewErr(ErrTest, "key", "value", "orphan")
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-	if !errors.Is(err, ErrTrailingKey) {
-		t.Errorf("expected ErrTrailingKey, got: %v", err)
-	}
-
-	// Check structured metadata - ErrMeta() now unwraps automatically
-	kvs := ErrMeta(err)
-	var foundKey bool
-	for _, kv := range kvs {
-		if kv.Key() == "key" && kv.Value() == "orphan" {
-			foundKey = true
-			break
+	// This should panic - trailing key without value is a programming error
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic for trailing key without value")
 		}
-	}
-	if !foundKey {
-		t.Error("expected metadata to contain key='orphan'")
-	}
+		panicMsg, ok := r.(string)
+		if !ok {
+			t.Fatalf("expected string panic message, got %T: %v", r, r)
+		}
+		// Verify panic message is helpful
+		if !strings.Contains(panicMsg, "orphan") {
+			t.Errorf("expected panic message to mention the orphan key, got: %q", panicMsg)
+		}
+		if !strings.Contains(panicMsg, "trailing key") {
+			t.Errorf("expected panic message to mention 'trailing key', got: %q", panicMsg)
+		}
+		t.Logf("Got expected panic: %s", panicMsg)
+	}()
+
+	// This should panic
+	_ = NewErr(ErrTest, "key", "value", "orphan")
 }
 
 func TestNewErr_Valid_ErrorAfterKVPairs_IsTrailingCause(t *testing.T) {
@@ -161,26 +164,25 @@ func TestNewErr_Valid_ErrorAfterKVPairs_IsTrailingCause(t *testing.T) {
 }
 
 func TestNewErr_Invalid_NonStringNonErrorValue(t *testing.T) {
-	err := NewErr(ErrTest, "key", "value", 123)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-	if !errors.Is(err, ErrInvalidArgumentType) {
-		t.Errorf("expected ErrInvalidArgumentType, got: %v", err)
-	}
-
-	// Check structured metadata - ErrMeta() now unwraps automatically
-	kvs := ErrMeta(err)
-	var foundType bool
-	for _, kv := range kvs {
-		if kv.Key() == "type" && kv.Value() == "int" {
-			foundType = true
-			break
+	// This should panic - invalid argument type is a programming error
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic for invalid argument type")
 		}
-	}
-	if !foundType {
-		t.Error("expected metadata to contain type='int'")
-	}
+		panicMsg, ok := r.(string)
+		if !ok {
+			t.Fatalf("expected string panic message, got %T: %v", r, r)
+		}
+		// Verify panic message mentions the invalid type
+		if !strings.Contains(panicMsg, "int") {
+			t.Errorf("expected panic message to mention invalid type 'int', got: %q", panicMsg)
+		}
+		t.Logf("Got expected panic: %s", panicMsg)
+	}()
+
+	// This should panic
+	_ = NewErr(ErrTest, "key", "value", 123)
 }
 
 func TestNewErr_Invalid_EmptyParts(t *testing.T) {
@@ -286,37 +288,6 @@ func TestNewErr_Valid_TrailingCauseWithNoMetadata(t *testing.T) {
 
 // Test that validation errors use structured metadata
 
-func TestValidationErrors_UseStructuredMetadata(t *testing.T) {
-	// Test trailing key error has structured metadata
-	err := NewErr(ErrTest, "key", "value", "orphan")
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-
-	// ErrMeta() now unwraps automatically to find the first doterr node
-	kvs := ErrMeta(err)
-	if len(kvs) == 0 {
-		t.Fatal("expected validation error to have structured metadata")
-	}
-
-	// Verify metadata keys
-	var foundKey, foundPosition bool
-	for _, kv := range kvs {
-		if kv.Key() == "key" && kv.Value() == "orphan" {
-			foundKey = true
-		}
-		if kv.Key() == "position" {
-			foundPosition = true
-		}
-	}
-	if !foundKey {
-		t.Error("expected metadata to contain 'key' with value 'orphan'")
-	}
-	if !foundPosition {
-		t.Error("expected metadata to contain 'position'")
-	}
-}
-
 // Test that validation errors themselves use sentinels
 
 func TestValidationErrors_UseSentinels(t *testing.T) {
@@ -335,16 +306,8 @@ func TestValidationErrors_UseSentinels(t *testing.T) {
 			args:     []any{"key", "value"},
 			sentinel: ErrMissingSentinel,
 		},
-		{
-			name:     "trailing key",
-			args:     []any{ErrTest, "key", "value", "orphan"},
-			sentinel: ErrTrailingKey,
-		},
-		{
-			name:     "invalid type",
-			args:     []any{ErrTest, "key", "value", 123},
-			sentinel: ErrInvalidArgumentType,
-		},
+		// Note: trailing key and invalid type now panic (programming errors)
+		// and are tested in their own dedicated panic tests
 	}
 
 	for _, tt := range tests {
