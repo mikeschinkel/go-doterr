@@ -365,9 +365,8 @@ func TestErrors_Extraction(t *testing.T) {
 		{
 			name: "joined error",
 			err:  errors.Join(NewErr(ErrTestSentinel), ErrCause),
-			// Note: Current implementation of Errors() may not handle all entry type cases
-			// This is testing current behavior
-			expectNil: true,
+			// Errors() finds the doterr entry in the joined error and returns its sentinels
+			expectLen: 1,
 		},
 		{
 			name:      "non-doterr error",
