@@ -1,3 +1,16 @@
-Gomion task E-2454 is adding `gomion repo setup`, which (among other steps) raises every module's `go` directive to Go 1.27 and tidies. Go 1.27 is now the minimum for Mike's go-pkgs repos because json/v2 no longer needs GOEXPERIMENT=jsonv2 there. Generated CI pins Go 1.27 and no longer sets GOEXPERIMENT.
+gomion E-2454 added `gomion repo setup` and `gomion repo workflows`. They generate a repo's .github/workflows/test.yml and release.yml from the go.mod files git tracks, and raise every go directive below Go 1.27 to 1.27. The generated workflows follow go-dt's Release model:
+- a module choice, with vX.Y.Z tags for root and <dir>/vX.Y.Z for nested modules;
+- refusal of a wrong module path, a replace directive or an existing tag;
+- GOWORK=off tests and per-module release notes, with .endless excluded from root's notes.
 
-When E-2454 ran, go-doterr's working tree held uncommitted changes from this project's own in-flight work in: cmd/sync-doterr/go.mod, cmd/sync-doterr/go.sum. On 2026-10-28 Mike chose to let this project's own tasks handle their own changes rather than have E-2454 commit around them. So E-2454 committed only the regenerated .github/workflows files here and left every go.mod in go-doterr alone. `gomion repo setup --check` reports go-doterr's modules as below Go 1.27 until this task runs.
+They also fix the model's gaps:
+- root kept marked latest;
+- Go pinned to 1.27, so GOEXPERIMENT=jsonv2 is no longer set;
+- ubuntu-26.04 instead of ubuntu-latest;
+- Node 24 action releases;
+- no setup-go cache, which warned when there was no root go.sum.
+
+Mike's rule is that Actions warnings and notices are removed wherever possible, never accepted as informational.
+
+On 2026-10-28 Mike decided that E-2454 changes only gomion and files one task per go-pkgs project, so that each change to go-doterr is made by a session for go-doterr itself. This is that task. The generated files carry a do-not-edit header; regenerate them with gomion rather than editing them by hand.
+When E-2454 planned this on 2026-10-28, go-doterr's working tree had uncommitted go.mod/go.sum changes from this project's own in-flight work. `gomion repo setup` refuses to raise a go.mod or go.sum that has uncommitted changes, so commit or finish that work first.
